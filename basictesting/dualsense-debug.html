@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DualSense Controller Debug</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-tertiary: #252542;
+      --accent: #9d4edd;
+      --accent-hover: #7b2cbf;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0a0;
+      --success: #2ec4b6;
+      --error: #e63946;
+      --warning: #f4a261;
+      --info: #4cc9f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    h1 { font-size: 1.8rem; display: flex; align-items: center; gap: 10px; }
+
+    .controls { display: flex; gap: 10px; align-items: center; }
+
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: var(--bg-tertiary); }
+    button.secondary:hover:not(:disabled) { background: #353560; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--bg-tertiary);
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .status-badge.connected::before { background: var(--success); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card h3 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .sticks-container { display: flex; gap: 30px; justify-content: center; }
+    .stick-wrapper { text-align: center; }
+    .stick-wrapper label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+
+    .stick {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      border: 2px solid #3a3a5c;
+      position: relative;
+    }
+
+    .stick::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40%; height: 40%;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .stick-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px var(--accent);
+      transition: all 0.05s;
+    }
+
+    .stick-values { font-family: monospace; font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+
+    .triggers-container { display: flex; gap: 20px; }
+    .trigger-wrapper { flex: 1; }
+    .trigger-wrapper label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+
+    .trigger-bar { height: 24px; background: var(--bg-tertiary); border-radius: 6px; overflow: hidden; }
+    .trigger-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #c77dff); transition: width 0.05s; }
+    .trigger-fill.left { background: linear-gradient(90deg, #4cc9f0, var(--accent)); }
+
+    .buttons-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    .button-indicator {
+      padding: 10px 5px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 0.1s;
+      border: 2px solid transparent;
+    }
+
+    .button-indicator.pressed {
+      background: var(--accent);
+      border-color: #c77dff;
+      box-shadow: 0 0 15px rgba(157, 78, 221, 0.5);
+    }
+
+    .dpad-container { display: flex; justify-content: center; margin-top: 15px; }
+    .dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 4px; }
+
+    .dpad-btn {
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.1s;
+    }
+
+    .dpad-btn.pressed { background: var(--accent); box-shadow: 0 0 10px rgba(157, 78, 221, 0.5); }
+    .dpad-center { background: transparent; }
+
+    .touchpad {
+      width: 100%;
+      height: 100px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .touch-point {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      position: absolute;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.1s;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .touch-point.active { opacity: 1; }
+    .touchpad-info { display: flex; justify-content: space-between; margin-top: 10px; font-size: 11px; font-family: monospace; color: var(--text-secondary); }
+
+    .imu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+    .imu-value { background: var(--bg-tertiary); padding: 12px; border-radius: 8px; text-align: center; }
+    .imu-value label { display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
+    .imu-value span { font-family: monospace; font-size: 14px; color: var(--info); }
+
+    .output-section { margin-bottom: 20px; }
+    .output-section:last-child { margin-bottom: 0; }
+    .output-section h4 { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+
+    .slider-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .slider-group label { font-size: 12px; min-width: 80px; }
+
+    input[type="range"] { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-tertiary); -webkit-appearance: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+
+    .slider-value { font-family: monospace; font-size: 12px; min-width: 35px; text-align: right; }
+
+    .color-picker-group { display: flex; align-items: center; gap: 15px; }
+    input[type="color"] { width: 50px; height: 35px; border: none; border-radius: 6px; cursor: pointer; background: var(--bg-tertiary); }
+    .color-preview { width: 35px; height: 35px; border-radius: 50%; border: 2px solid var(--bg-tertiary); }
+
+    .output-buttons { display: flex; gap: 10px; margin-top: 15px; }
+    .output-buttons button { flex: 1; padding: 8px; font-size: 12px; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .info-item { background: var(--bg-tertiary); padding: 12px; border-radius: 8px; }
+    .info-item label { display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
+    .info-item span { font-family: monospace; font-size: 14px; }
+
+    .log {
+      height: 200px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    .log-entry { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry.error { color: var(--error); }
+    .log-entry.success { color: var(--success); }
+    .log-entry.info { color: var(--info); }
+    .log-entry.warn { color: var(--warning); }
+    .log-time { color: var(--text-secondary); margin-right: 8px; }
+
+    .battery-display { display: flex; align-items: center; gap: 10px; }
+
+    .battery-icon {
+      width: 40px;
+      height: 20px;
+      border: 2px solid var(--text-secondary);
+      border-radius: 4px;
+      position: relative;
+      padding: 2px;
+    }
+
+    .battery-icon::after {
+      content: '';
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 10px;
+      background: var(--text-secondary);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .battery-level { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.3s; }
+    .battery-level.low { background: var(--error); }
+    .battery-level.medium { background: var(--warning); }
+    .battery-text { font-family: monospace; font-size: 14px; }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      .sticks-container { flex-direction: column; align-items: center; }
+      .buttons-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎮 DualSense Debug</h1>
+    <div class="controls">
+      <div class="status-badge" id="status">
+        <span id="status-text">Disconnected</span>
+      </div>
+      <button id="connect">Connect</button>
+      <button id="disconnect" disabled class="secondary">Disconnect</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Analog Sticks -->
+    <div class="card">
+      <h3>Analog Sticks</h3>
+      <div class="sticks-container">
+        <div class="stick-wrapper">
+          <label>Left Stick</label>
+          <div class="stick"><div class="stick-dot" id="left-stick-dot"></div></div>
+          <div class="stick-values" id="left-stick-val">X: 127, Y: 127</div>
+        </div>
+        <div class="stick-wrapper">
+          <label>Right Stick</label>
+          <div class="stick"><div class="stick-dot" id="right-stick-dot"></div></div>
+          <div class="stick-values" id="right-stick-val">X: 127, Y: 127</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Triggers -->
+    <div class="card">
+      <h3>Triggers</h3>
+      <div class="triggers-container">
+        <div class="trigger-wrapper">
+          <label>L2 <span id="l2-val">0</span></label>
+          <div class="trigger-bar"><div class="trigger-fill left" id="l2-bar"></div></div>
+        </div>
+        <div class="trigger-wrapper">
+          <label>R2 <span id="r2-val">0</span></label>
+          <div class="trigger-bar"><div class="trigger-fill" id="r2-bar"></div></div>
+        </div>
+      </div>
+      <div class="triggers-container" style="margin-top: 15px;">
+        <div class="trigger-wrapper"><label>L1</label><div class="button-indicator" data-btn="l1">L1</div></div>
+        <div class="trigger-wrapper"><label>R1</label><div class="button-indicator" data-btn="r1">R1</div></div>
+      </div>
+    </div>
+
+    <!-- Face Buttons -->
+    <div class="card">
+      <h3>Buttons</h3>
+      <div class="buttons-grid">
+        <div class="button-indicator" data-btn="triangle">△</div>
+        <div class="button-indicator" data-btn="circle">○</div>
+        <div class="button-indicator" data-btn="cross">✕</div>
+        <div class="button-indicator" data-btn="square">□</div>
+        <div class="button-indicator" data-btn="l3">L3</div>
+        <div class="button-indicator" data-btn="r3">R3</div>
+        <div class="button-indicator" data-btn="create">Create</div>
+        <div class="button-indicator" data-btn="options">Options</div>
+        <div class="button-indicator" data-btn="ps">PS</div>
+        <div class="button-indicator" data-btn="touchpad">Touch</div>
+        <div class="button-indicator" data-btn="mute">Mute</div>
+      </div>
+      <div class="dpad-container">
+        <div class="dpad">
+          <div class="dpad-btn" style="visibility:hidden;"></div>
+          <div class="dpad-btn" data-dpad="up">↑</div>
+          <div class="dpad-btn" style="visibility:hidden;"></div>
+          <div class="dpad-btn" data-dpad="left">←</div>
+          <div class="dpad-btn dpad-center"></div>
+          <div class="dpad-btn" data-dpad="right">→</div>
+          <div class="dpad-btn" style="visibility:hidden;"></div>
+          <div class="dpad-btn" data-dpad="down">↓</div>
+          <div class="dpad-btn" style="visibility:hidden;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Touchpad -->
+    <div class="card">
+      <h3>Touchpad</h3>
+      <div class="touchpad" id="touchpad">
+        <div class="touch-point" id="touch1"></div>
+        <div class="touch-point" id="touch2"></div>
+      </div>
+      <div class="touchpad-info">
+        <span id="touch1-info">Touch 1: --</span>
+        <span id="touch2-info">Touch 2: --</span>
+      </div>
+    </div>
+
+    <!-- IMU -->
+    <div class="card">
+      <h3>Motion Sensors (IMU)</h3>
+      <div style="margin-bottom: 10px; font-size: 12px; color: var(--text-secondary);">Gyroscope</div>
+      <div class="imu-grid">
+        <div class="imu-value"><label>Pitch</label><span id="gyro-pitch">0</span></div>
+        <div class="imu-value"><label>Yaw</label><span id="gyro-yaw">0</span></div>
+        <div class="imu-value"><label>Roll</label><span id="gyro-roll">0</span></div>
+      </div>
+      <div style="margin: 15px 0 10px; font-size: 12px; color: var(--text-secondary);">Accelerometer</div>
+      <div class="imu-grid">
+        <div class="imu-value"><label>X</label><span id="accel-x">0</span></div>
+        <div class="imu-value"><label>Y</label><span id="accel-y">0</span></div>
+        <div class="imu-value"><label>Z</label><span id="accel-z">0</span></div>
+      </div>
+    </div>
+
+    <!-- Output Controls -->
+    <div class="card">
+      <h3>Output Controls</h3>
+      <div class="output-section">
+        <h4>Haptic Feedback (Rumble)</h4>
+        <div class="slider-group">
+          <label>Left Motor</label>
+          <input type="range" id="rumble-left" min="0" max="255" value="128">
+          <span class="slider-value" id="rumble-left-val">128</span>
+        </div>
+        <div class="slider-group">
+          <label>Right Motor</label>
+          <input type="range" id="rumble-right" min="0" max="255" value="128">
+          <span class="slider-value" id="rumble-right-val">128</span>
+        </div>
+        <div class="output-buttons">
+          <button id="rumble-test" class="secondary">Test Rumble</button>
+          <button id="rumble-stop" class="secondary">Stop</button>
+        </div>
+      </div>
+      <div class="output-section">
+        <h4>Lightbar Color</h4>
+        <div class="color-picker-group">
+          <input type="color" id="lightbar-color" value="#9d4edd">
+          <div class="color-preview" id="color-preview" style="background: #9d4edd;"></div>
+          <button id="apply-color" class="secondary">Apply</button>
+        </div>
+        <div class="output-buttons" style="margin-top: 10px;">
+          <button id="color-red" class="secondary" style="background: #e63946;">Red</button>
+          <button id="color-green" class="secondary" style="background: #2ec4b6;">Green</button>
+          <button id="color-blue" class="secondary" style="background: #4cc9f0;">Blue</button>
+          <button id="color-off" class="secondary">Off</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device Info -->
+    <div class="card">
+      <h3>Device Info</h3>
+      <div class="info-grid">
+        <div class="info-item"><label>Device</label><span id="device-name">--</span></div>
+        <div class="info-item"><label>Type</label><span id="device-type">--</span></div>
+        <div class="info-item"><label>Connection</label><span id="conn-type">--</span></div>
+        <div class="info-item"><label>Reports/sec</label><span id="reports-sec">0</span></div>
+      </div>
+      <div style="margin-top: 15px;">
+        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 8px;">Battery</label>
+        <div class="battery-display">
+          <div class="battery-icon"><div class="battery-level" id="battery-level" style="width: 0%;"></div></div>
+          <span class="battery-text" id="battery-text">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h3>Event Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // CRC32 for Bluetooth Output Reports
+    // ============================================================
+    const CRC32 = (() => {
+      let table = null;
+      
+      function makeTable() {
+        const t = [];
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) {
+            c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          }
+          t[n] = c >>> 0;
+        }
+        return t;
+      }
+
+      function compute(prefixBytes, data, length) {
+        if (!table) table = makeTable();
+        let crc = 0xFFFFFFFF;
+        for (const byte of prefixBytes) {
+          crc = (crc >>> 8) ^ table[(crc ^ byte) & 0xFF];
+        }
+        for (let i = 0; i < length; i++) {
+          crc = (crc >>> 8) ^ table[(crc ^ data[i]) & 0xFF];
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      return { compute };
+    })();
+
+    // ============================================================
+    // DUALSENSE CONTROLLER CLASS
+    // ============================================================
+    class DualSenseController {
+      static VENDOR_ID = 0x054C;
+      static PRODUCT_ID_DUALSENSE = 0x0CE6;
+      static PRODUCT_ID_DUALSENSE_EDGE = 0x0DF2;
+
+      constructor() {
+        this.device = null;
+        this.connectionType = null;
+        this.deviceType = null;
+        this._inputHandler = null;
+        this._outputSeq = 0;
+        this.state = this._createState();
+        this._listeners = { data: [], connect: [], disconnect: [], error: [] };
+        this.stats = { reportCount: 0, reportsPerSecond: 0 };
+        this._lastRateTime = Date.now();
+        this._reportsThisSecond = 0;
+      }
+
+      _createState() {
+        return {
+          connected: false,
+          lastUpdate: 0,
+          sticks: { left: { x: 127, y: 127 }, right: { x: 127, y: 127 } },
+          triggers: { left: 0, right: 0, leftLevel: 0, rightLevel: 0 },
+          buttons: {
+            cross: false, circle: false, square: false, triangle: false,
+            l1: false, r1: false, l2: false, r2: false, l3: false, r3: false,
+            create: false, options: false, ps: false, touchpad: false, mute: false,
+            fnL: false, fnR: false, backL: false, backR: false
+          },
+          dpad: { up: false, down: false, left: false, right: false },
+          imu: { gyro: { pitch: 0, yaw: 0, roll: 0 }, accel: { x: 0, y: 0, z: 0 }, timestamp: 0, temperature: 0 },
+          touchpad: [{ id: 0, x: 0, y: 0, active: false }, { id: 0, x: 0, y: 0, active: false }],
+          battery: { level: 0, charging: false, status: 'unknown' },
+          sequenceNum: 0
+        };
+      }
+
+      static isSupported() { return 'hid' in navigator; }
+      on(event, callback) { if (this._listeners[event]) this._listeners[event].push(callback); return this; }
+      off(event, callback) { if (this._listeners[event]) { const i = this._listeners[event].indexOf(callback); if (i > -1) this._listeners[event].splice(i, 1); } return this; }
+      _emit(event, data) { if (this._listeners[event]) this._listeners[event].forEach(cb => cb(data)); }
+
+      async connect() {
+        if (!DualSenseController.isSupported()) throw new Error('WebHID API not supported.');
+        try {
+          const devices = await navigator.hid.requestDevice({
+            filters: [
+              { vendorId: DualSenseController.VENDOR_ID, productId: DualSenseController.PRODUCT_ID_DUALSENSE },
+              { vendorId: DualSenseController.VENDOR_ID, productId: DualSenseController.PRODUCT_ID_DUALSENSE_EDGE }
+            ]
+          });
+          if (devices.length === 0) throw new Error('No DualSense selected');
+          this.device = devices[0];
+          this.deviceType = this.device.productId === DualSenseController.PRODUCT_ID_DUALSENSE_EDGE ? 'dualsense_edge' : 'dualsense';
+          if (!this.device.opened) await this.device.open();
+          this.connectionType = this._detectConnectionType();
+          this._inputHandler = (e) => this._handleInputReport(e);
+          this.device.addEventListener('inputreport', this._inputHandler);
+          this._rateInterval = setInterval(() => this._updateRate(), 1000);
+          this.state.connected = true;
+          const info = { name: this.device.productName, vendorId: this.device.vendorId, productId: this.device.productId, connectionType: this.connectionType, deviceType: this.deviceType };
+          this._emit('connect', info);
+          return info;
+        } catch (err) { this._emit('error', { message: err.message, error: err }); throw err; }
+      }
+
+      _detectConnectionType() {
+        console.log('[DualSense] Detecting connection type...');
+        console.log('[DualSense] Collections:', this.device.collections.length);
+        
+        for (const col of this.device.collections) {
+          console.log('[DualSense] Collection:', {
+            usagePage: '0x' + col.usagePage?.toString(16),
+            usage: '0x' + col.usage?.toString(16),
+            inputReports: col.inputReports?.length
+          });
+          
+          if (col.usagePage === 0x0001 && col.usage === 0x0005) {
+            let maxBits = 0;
+            col.inputReports?.forEach((rep, idx) => {
+              let bits = 0;
+              rep.items?.forEach(item => { bits += (item.reportSize || 0) * (item.reportCount || 0); });
+              console.log(`[DualSense] InputReport[${idx}]: reportId=0x${rep.reportId?.toString(16)}, bits=${bits}`);
+              maxBits = Math.max(maxBits, bits);
+            });
+            console.log('[DualSense] Max input report bits:', maxBits);
+            
+            if (maxBits === 504) {
+              console.log('[DualSense] Detected: USB connection');
+              return 'usb';
+            }
+            if (maxBits === 616) {
+              console.log('[DualSense] Detected: Bluetooth connection');
+              return 'bluetooth';
+            }
+          }
+        }
+        console.log('[DualSense] Fallback: assuming USB');
+        return 'usb';
+      }
+
+      async disconnect() {
+        clearInterval(this._rateInterval);
+        if (this.device) {
+          if (this._inputHandler) this.device.removeEventListener('inputreport', this._inputHandler);
+          try { await this.device.close(); } catch {}
+        }
+        this.device = null;
+        this.state.connected = false;
+        this._emit('disconnect', {});
+      }
+
+      _getOffset(isUSB) {
+        const n = isUSB ? 0 : 1;
+        return {
+          analogStickLX: n, analogStickLY: 1+n, analogStickRX: 2+n, analogStickRY: 3+n,
+          analogTriggerL: 4+n, analogTriggerR: 5+n, sequenceNum: 6+n, digitalKeys: 7+n,
+          gyroPitch: 15+n, gyroYaw: 17+n, gyroRoll: 19+n,
+          accelX: 21+n, accelY: 23+n, accelZ: 25+n,
+          motionTimeStamp: 27+n, motionTemperature: 31+n,
+          touchData: 32+n, triggerLevel: 49+n, status0: 52+n
+        };
+      }
+
+      _handleInputReport(event) {
+        const { data, reportId } = event;
+        if (reportId !== 0x01 && reportId !== 0x31) return;
+        const isUSB = reportId === 0x01;
+        const o = this._getOffset(isUSB);
+        this.stats.reportCount++; this._reportsThisSecond++;
+        this.state.lastUpdate = Date.now();
+        try {
+          this.state.sticks.left = { x: data.getUint8(o.analogStickLX), y: data.getUint8(o.analogStickLY) };
+          this.state.sticks.right = { x: data.getUint8(o.analogStickRX), y: data.getUint8(o.analogStickRY) };
+          this.state.triggers.left = data.getUint8(o.analogTriggerL);
+          this.state.triggers.right = data.getUint8(o.analogTriggerR);
+          this.state.sequenceNum = data.getUint8(o.sequenceNum);
+          const k0 = data.getUint8(o.digitalKeys), k1 = data.getUint8(o.digitalKeys + 1), k2 = data.getUint8(o.digitalKeys + 2);
+          this.state.buttons.triangle = (k0 & 0x80) !== 0; this.state.buttons.circle = (k0 & 0x40) !== 0;
+          this.state.buttons.cross = (k0 & 0x20) !== 0; this.state.buttons.square = (k0 & 0x10) !== 0;
+          const dpad = k0 & 0x0F;
+          this.state.dpad.up = dpad === 0 || dpad === 1 || dpad === 7;
+          this.state.dpad.right = dpad === 1 || dpad === 2 || dpad === 3;
+          this.state.dpad.down = dpad === 3 || dpad === 4 || dpad === 5;
+          this.state.dpad.left = dpad === 5 || dpad === 6 || dpad === 7;
+          this.state.buttons.r3 = (k1 & 0x80) !== 0; this.state.buttons.l3 = (k1 & 0x40) !== 0;
+          this.state.buttons.options = (k1 & 0x20) !== 0; this.state.buttons.create = (k1 & 0x10) !== 0;
+          this.state.buttons.r2 = (k1 & 0x08) !== 0; this.state.buttons.l2 = (k1 & 0x04) !== 0;
+          this.state.buttons.r1 = (k1 & 0x02) !== 0; this.state.buttons.l1 = (k1 & 0x01) !== 0;
+          this.state.buttons.ps = (k2 & 0x01) !== 0; this.state.buttons.touchpad = (k2 & 0x02) !== 0; this.state.buttons.mute = (k2 & 0x04) !== 0;
+          if (this.deviceType === 'dualsense_edge') {
+            this.state.buttons.fnL = (k2 & 0x10) !== 0; this.state.buttons.fnR = (k2 & 0x20) !== 0;
+            this.state.buttons.backL = (k2 & 0x40) !== 0; this.state.buttons.backR = (k2 & 0x80) !== 0;
+          }
+          this.state.imu.gyro = { pitch: data.getInt16(o.gyroPitch, true), yaw: data.getInt16(o.gyroYaw, true), roll: data.getInt16(o.gyroRoll, true) };
+          this.state.imu.accel = { x: data.getInt16(o.accelX, true), y: data.getInt16(o.accelY, true), z: data.getInt16(o.accelZ, true) };
+          this.state.imu.timestamp = data.getUint32(o.motionTimeStamp, true);
+          for (let i = 0; i < 2; i++) {
+            const base = o.touchData + (i * 4);
+            const b0 = data.getUint8(base), b1 = data.getUint8(base+1), b2 = data.getUint8(base+2), b3 = data.getUint8(base+3);
+            this.state.touchpad[i] = { id: b0 & 0x7F, active: (b0 & 0x80) === 0, x: ((b2 & 0x0F) << 8) | b1, y: (b3 << 4) | ((b2 & 0xF0) >> 4) };
+          }
+          const status = data.getUint8(o.status0);
+          this.state.battery.level = Math.min((status & 0x0F) * 10 + 5, 100);
+          const charge = (status >> 4) & 0x0F;
+          this.state.battery.charging = charge === 1 || charge === 2;
+          this.state.battery.status = ['discharging', 'charging', 'complete', 'voltage_error', 'temperature_error', 'charging_error'][charge] || 'unknown';
+          this._emit('data', { state: this.state, reportId });
+        } catch (err) { console.debug('Parse error:', err); }
+      }
+
+      _updateRate() {
+        const elapsed = (Date.now() - this._lastRateTime) / 1000;
+        this.stats.reportsPerSecond = Math.round(this._reportsThisSecond / elapsed);
+        this._reportsThisSecond = 0;
+        this._lastRateTime = Date.now();
+      }
+
+      getStickNormalized(stick) {
+        const s = this.state.sticks[stick];
+        return { x: (s.x - 127) / 127, y: (s.y - 127) / 127 };
+      }
+
+      /**
+       * Build and send output report
+       * Output report structure (47 bytes for USB):
+       * [0] validFlag0 - bits enable features (bit0=rumbleRight, bit1=rumbleLeft, bit2=lightbar)
+       * [1] validFlag1 - always 0xF7
+       * [2] bcVibrationRight (soft/high frequency motor)
+       * [3] bcVibrationLeft (heavy/low frequency motor)
+       * [41] lightbarSetup (0x02 to enable)
+       * [42] ledBrightness
+       * [43] playerIndicator
+       * [44] ledCRed
+       * [45] ledCGreen
+       * [46] ledCBlue
+       */
+      async sendOutputReport(options = {}) {
+        if (!this.device || !this.device.opened) throw new Error('Not connected');
+
+        // Build 47-byte output report matching dualsense-tester OutputStruct
+        // Byte layout:
+        // 0: validFlag0, 1: validFlag1, 2: bcVibrationRight, 3: bcVibrationLeft,
+        // 4: headphoneVolume, 5: speakerVolume, 6: micVolume, 7: audioControl,
+        // 8: muteLedControl, 9: powerSaveMuteControl,
+        // 10: adaptiveTriggerRightMode, 11-20: adaptiveTriggerRightParams,
+        // 21: adaptiveTriggerLeftMode, 22-31: adaptiveTriggerLeftParams,
+        // 32-35: Reserved, 36: hapticVolume, 37: audioControl2,
+        // 38: validFlag2, 39-40: Reserved,
+        // 41: lightbarSetup, 42: ledBrightness, 43: playerIndicator,
+        // 44: ledCRed, 45: ledCGreen, 46: ledCBlue
+
+        const report = new Uint8Array(47);
+        
+        let validFlag0 = 0;
+        let validFlag2 = 0;
+        
+        // ValidFlag1: always 0xF7 (enables motor control)
+        report[1] = 0xF7;
+
+        // Rumble motors - set validFlag0 bits 0 and 1
+        if (options.rumbleRight !== undefined || options.rumbleLeft !== undefined) {
+          validFlag0 |= 0x01; // Bit 0: enable compatible vibration
+          validFlag0 |= 0x02; // Bit 1: enable haptic low-pass filter
+          report[2] = options.rumbleRight ?? 0; // Right motor (soft/high frequency)
+          report[3] = options.rumbleLeft ?? 0;  // Left motor (heavy/low frequency)
+        }
+
+        // Lightbar color - set validFlag2 bit 1
+        if (options.lightbarR !== undefined || options.lightbarG !== undefined || options.lightbarB !== undefined) {
+          validFlag2 |= 0x02; // Bit 1: enable lightbar color
+          report[41] = 0x02;  // lightbarSetup: enable lightbar fade
+          report[42] = 0x02;  // ledBrightness: high
+          report[44] = options.lightbarR ?? 0;
+          report[45] = options.lightbarG ?? 0;
+          report[46] = options.lightbarB ?? 0;
+        }
+
+        // Player LEDs - set validFlag2 bit 1
+        if (options.playerLEDs !== undefined) {
+          validFlag2 |= 0x02;
+          report[41] = 0x02;
+          report[43] = options.playerLEDs & 0x1F;
+        }
+
+        report[0] = validFlag0;
+        report[38] = validFlag2;
+
+        // Send based on connection type
+        if (this.connectionType === 'usb') {
+          console.log('[DualSense] USB Output Report:', Array.from(report.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+          await this.device.sendReport(0x02, report);
+        } else {
+          // Bluetooth: wrap in 77-byte packet with seq number and CRC32
+          const btReport = new Uint8Array(77);
+          
+          // Byte 0: sequence number in upper nibble
+          btReport[0] = this._outputSeq << 4;
+          if (++this._outputSeq === 256) {
+            this._outputSeq = 0;
+          }
+          
+          // Byte 1: tag (0x10 for standard output)
+          btReport[1] = 0x10;
+          
+          // Bytes 2-48: the 47-byte output report data
+          btReport.set(report, 2);
+          
+          // Calculate CRC32 with prefix [0xA2, 0x31] on first 73 bytes
+          const crc = CRC32.compute([0xA2, 0x31], btReport, 73);
+          
+          // Write CRC32 to last 4 bytes (little-endian)
+          btReport[73] = (crc >>> 0) & 0xFF;
+          btReport[74] = (crc >>> 8) & 0xFF;
+          btReport[75] = (crc >>> 16) & 0xFF;
+          btReport[76] = (crc >>> 24) & 0xFF;
+          
+          console.log('[DualSense] BT Output Report:', 
+            'seq=', btReport[0].toString(16),
+            'tag=', btReport[1].toString(16),
+            'flags0=', report[0].toString(16),
+            'flags1=', report[1].toString(16),
+            'flags2=', report[38].toString(16),
+            'motorR=', report[2],
+            'motorL=', report[3],
+            'crc=', crc.toString(16)
+          );
+          
+          await this.device.sendReport(0x31, btReport);
+        }
+      }
+
+      async setRumble(leftMotor, rightMotor) {
+        await this.sendOutputReport({ rumbleLeft: leftMotor, rumbleRight: rightMotor });
+      }
+
+      async stopRumble() {
+        await this.setRumble(0, 0);
+      }
+
+      async setLightbarColor(r, g, b) {
+        await this.sendOutputReport({ lightbarR: r, lightbarG: g, lightbarB: b });
+      }
+
+      async setPlayerLEDs(pattern) {
+        await this.sendOutputReport({ playerLEDs: pattern });
+      }
+    }
+
+    // ============================================================
+    // UI CONTROLLER
+    // ============================================================
+    const $ = id => document.getElementById(id);
+    const ds = new DualSenseController();
+
+    function log(msg, type = '') {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + type;
+      const time = new Date().toLocaleTimeString();
+      entry.innerHTML = `<span class="log-time">${time}</span>${msg}`;
+      $('log').appendChild(entry);
+      $('log').scrollTop = $('log').scrollHeight;
+    }
+
+    // Check support
+    if (!DualSenseController.isSupported()) {
+      log('❌ WebHID API not supported! Use Chrome or Edge.', 'error');
+      $('connect').disabled = true;
+    } else {
+      log('✓ WebHID API supported', 'success');
+    }
+
+    // Connect
+    $('connect').addEventListener('click', async () => {
+      try {
+        log('Requesting device...', 'info');
+        const info = await ds.connect();
+        log(`✓ Connected: ${info.name}`, 'success');
+        log(`  Type: ${info.deviceType}, Connection: ${info.connectionType.toUpperCase()}`, 'info');
+      } catch (err) {
+        log(`✗ ${err.message}`, 'error');
+      }
+    });
+
+    // Disconnect
+    $('disconnect').addEventListener('click', async () => {
+      await ds.disconnect();
+    });
+
+    // Event handlers
+    ds.on('connect', (info) => {
+      $('status').className = 'status-badge connected';
+      $('status-text').textContent = 'Connected';
+      $('connect').disabled = true;
+      $('disconnect').disabled = false;
+      $('device-name').textContent = info.name;
+      $('device-type').textContent = info.deviceType === 'dualsense_edge' ? 'Edge' : 'Standard';
+      $('conn-type').textContent = info.connectionType.toUpperCase();
+    });
+
+    ds.on('disconnect', () => {
+      log('Disconnected', 'warn');
+      $('status').className = 'status-badge';
+      $('status-text').textContent = 'Disconnected';
+      $('connect').disabled = false;
+      $('disconnect').disabled = true;
+      $('device-name').textContent = '--';
+      $('device-type').textContent = '--';
+      $('conn-type').textContent = '--';
+      $('reports-sec').textContent = '0';
+    });
+
+    ds.on('error', (err) => {
+      log(`Error: ${err.message}`, 'error');
+    });
+
+    ds.on('data', ({ state }) => {
+      // Sticks
+      const leftStick = ds.getStickNormalized('left');
+      const rightStick = ds.getStickNormalized('right');
+      $('left-stick-dot').style.left = `${50 + leftStick.x * 45}%`;
+      $('left-stick-dot').style.top = `${50 + leftStick.y * 45}%`;
+      $('right-stick-dot').style.left = `${50 + rightStick.x * 45}%`;
+      $('right-stick-dot').style.top = `${50 + rightStick.y * 45}%`;
+      $('left-stick-val').textContent = `X: ${state.sticks.left.x}, Y: ${state.sticks.left.y}`;
+      $('right-stick-val').textContent = `X: ${state.sticks.right.x}, Y: ${state.sticks.right.y}`;
+
+      // Triggers
+      $('l2-bar').style.width = `${(state.triggers.left / 255) * 100}%`;
+      $('r2-bar').style.width = `${(state.triggers.right / 255) * 100}%`;
+      $('l2-val').textContent = state.triggers.left;
+      $('r2-val').textContent = state.triggers.right;
+
+      // Buttons
+      document.querySelectorAll('.button-indicator[data-btn]').forEach(btn => {
+        btn.classList.toggle('pressed', state.buttons[btn.dataset.btn]);
+      });
+
+      // D-Pad
+      document.querySelectorAll('.dpad-btn[data-dpad]').forEach(btn => {
+        btn.classList.toggle('pressed', state.dpad[btn.dataset.dpad]);
+      });
+
+      // Touchpad
+      state.touchpad.forEach((touch, i) => {
+        const el = $(`touch${i + 1}`);
+        const info = $(`touch${i + 1}-info`);
+        if (touch.active) {
+          el.classList.add('active');
+          el.style.left = `${(touch.x / 1920) * 100}%`;
+          el.style.top = `${(touch.y / 1080) * 100}%`;
+          info.textContent = `Touch ${i + 1}: ${touch.x}, ${touch.y}`;
+        } else {
+          el.classList.remove('active');
+          info.textContent = `Touch ${i + 1}: --`;
+        }
+      });
+
+      // IMU
+      $('gyro-pitch').textContent = state.imu.gyro.pitch;
+      $('gyro-yaw').textContent = state.imu.gyro.yaw;
+      $('gyro-roll').textContent = state.imu.gyro.roll;
+      $('accel-x').textContent = state.imu.accel.x;
+      $('accel-y').textContent = state.imu.accel.y;
+      $('accel-z').textContent = state.imu.accel.z;
+
+      // Battery
+      const batLevel = $('battery-level');
+      batLevel.style.width = `${state.battery.level}%`;
+      batLevel.className = 'battery-level';
+      if (state.battery.level <= 20) batLevel.classList.add('low');
+      else if (state.battery.level <= 50) batLevel.classList.add('medium');
+      $('battery-text').textContent = `${state.battery.level}%${state.battery.charging ? ' ⚡' : ''}`;
+
+      // Stats
+      $('reports-sec').textContent = ds.stats.reportsPerSecond;
+    });
+
+    // Rumble controls
+    $('rumble-left').addEventListener('input', (e) => { $('rumble-left-val').textContent = e.target.value; });
+    $('rumble-right').addEventListener('input', (e) => { $('rumble-right-val').textContent = e.target.value; });
+
+    $('rumble-test').addEventListener('click', async () => {
+      if (!ds.state.connected) return;
+      try {
+        const left = parseInt($('rumble-left').value);
+        const right = parseInt($('rumble-right').value);
+        await ds.setRumble(left, right);
+        log(`Rumble: L=${left}, R=${right}`, 'info');
+      } catch (err) { log(`Rumble error: ${err.message}`, 'error'); }
+    });
+
+    $('rumble-stop').addEventListener('click', async () => {
+      if (!ds.state.connected) return;
+      try {
+        await ds.stopRumble();
+        log('Rumble stopped', 'info');
+      } catch (err) { log(`Stop error: ${err.message}`, 'error'); }
+    });
+
+    // Lightbar controls
+    $('lightbar-color').addEventListener('input', (e) => { $('color-preview').style.background = e.target.value; });
+
+    $('apply-color').addEventListener('click', async () => {
+      if (!ds.state.connected) return;
+      try {
+        const hex = $('lightbar-color').value;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        await ds.setLightbarColor(r, g, b);
+        log(`Lightbar: RGB(${r}, ${g}, ${b})`, 'info');
+      } catch (err) { log(`Lightbar error: ${err.message}`, 'error'); }
+    });
+
+    $('color-red').addEventListener('click', async () => { if (ds.state.connected) { await ds.setLightbarColor(255, 0, 0); log('Lightbar: Red', 'info'); }});
+    $('color-green').addEventListener('click', async () => { if (ds.state.connected) { await ds.setLightbarColor(0, 255, 0); log('Lightbar: Green', 'info'); }});
+    $('color-blue').addEventListener('click', async () => { if (ds.state.connected) { await ds.setLightbarColor(0, 0, 255); log('Lightbar: Blue', 'info'); }});
+    $('color-off').addEventListener('click', async () => { if (ds.state.connected) { await ds.setLightbarColor(0, 0, 0); log('Lightbar: Off', 'info'); }});
+
+    log('Ready. Click "Connect" to begin.', 'info');
+  </script>
+</body>
+</html>

@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>etee Controller Debug v4</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 { color: #9d4edd; margin-bottom: 5px; }
+    .subtitle { color: #888; margin-bottom: 20px; font-size: 14px; }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover:not(:disabled) { transform: translateY(-2px); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-connect { background: linear-gradient(135deg, #7b2cbf, #9d4edd); color: white; }
+    .btn-disconnect { background: #e63946; color: white; }
+    .btn-command { background: #2ec4b6; color: #0f0f1a; }
+    .btn-clear { background: #444; color: white; }
+    
+    select, input {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #2a2a3e;
+      color: white;
+      font-size: 13px;
+    }
+    
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+    }
+    .status.disconnected { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+    .status.connected { background: rgba(76,201,240,0.2); color: #4cc9f0; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    
+    .panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .panel h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+    
+    /* Controller Sections */
+    .controllers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    @media (max-width: 900px) {
+      .controllers-grid { grid-template-columns: 1fr; }
+    }
+    
+    .controller-section {
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      padding: 15px;
+      border: 2px solid #333;
+      transition: all 0.3s;
+    }
+    .controller-section.left { border-color: #4cc9f0; }
+    .controller-section.right { border-color: #f72585; }
+    .controller-section.active.left { 
+      border-color: #4cc9f0;
+      box-shadow: 0 0 25px rgba(76,201,240,0.3);
+    }
+    .controller-section.active.right { 
+      border-color: #f72585;
+      box-shadow: 0 0 25px rgba(247,37,133,0.3);
+    }
+    .controller-section.inactive {
+      opacity: 0.5;
+    }
+    
+    .controller-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+    .controller-header .icon { font-size: 28px; }
+    .controller-header h3 { font-size: 18px; flex: 1; }
+    .controller-header.left h3 { color: #4cc9f0; }
+    .controller-header.right h3 { color: #f72585; }
+    .controller-header .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-badge.streaming { background: rgba(46,196,182,0.3); color: #2ec4b6; }
+    .status-badge.connected { background: rgba(157,78,221,0.3); color: #c77dff; }
+    .status-badge.offline { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+    
+    .controller-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    .mini-stat {
+      background: rgba(0,0,0,0.3);
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .mini-stat-label { font-size: 9px; color: #666; text-transform: uppercase; }
+    .mini-stat-value { font-size: 14px; font-weight: bold; }
+    .left .mini-stat-value { color: #4cc9f0; }
+    .right .mini-stat-value { color: #f72585; }
+    
+    .finger-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    .finger {
+      flex: 1;
+      text-align: center;
+    }
+    .finger-bar {
+      width: 100%;
+      height: 60px;
+      background: #222;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .finger-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-radius: 0 0 8px 8px;
+      transition: height 0.05s;
+    }
+    .left .finger-fill { background: linear-gradient(to top, #0077b6, #4cc9f0); }
+    .right .finger-fill { background: linear-gradient(to top, #b5179e, #f72585); }
+    .finger-fill.touched { background: linear-gradient(to top, #2ec4b6, #83e377) !important; }
+    .finger-fill.clicked { background: linear-gradient(to top, #e63946, #ff6b6b) !important; }
+    .finger-label { font-size: 9px; color: #888; text-transform: uppercase; }
+    .finger-value { font-size: 11px; font-family: monospace; }
+    .left .finger-value { color: #4cc9f0; }
+    .right .finger-value { color: #f72585; }
+    
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .data-item {
+      background: rgba(0,0,0,0.3);
+      padding: 6px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .data-label { font-size: 8px; color: #666; text-transform: uppercase; }
+    .data-value { font-size: 12px; font-family: monospace; }
+    .left .data-value { color: #4cc9f0; }
+    .right .data-value { color: #f72585; }
+    
+    .imu-section h4 {
+      font-size: 10px;
+      color: #666;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .imu-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .command-section {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .command-section input {
+      flex: 1;
+      min-width: 150px;
+    }
+    .preset-commands {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .preset-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      background: rgba(157,78,221,0.2);
+      border: 1px solid rgba(157,78,221,0.4);
+      color: #c77dff;
+    }
+    .preset-btn:hover { background: rgba(157,78,221,0.4); }
+    .preset-btn.start { background: rgba(46,196,182,0.2); border-color: rgba(46,196,182,0.4); color: #2ec4b6; }
+    .preset-btn.stop { background: rgba(230,57,70,0.2); border-color: rgba(230,57,70,0.4); color: #ff6b6b; }
+    
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+    }
+    .stat {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-label { font-size: 10px; color: #666; margin-bottom: 2px; }
+    .stat-value { font-size: 16px; color: #4cc9f0; font-weight: bold; }
+    
+    .log {
+      background: #0a0a12;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .log-entry { margin-bottom: 3px; }
+    .log-entry.error { color: #ff6b6b; }
+    .log-entry.info { color: #4cc9f0; }
+    .log-entry.send { color: #2ec4b6; }
+    .log-entry.recv { color: #c77dff; }
+    .log-entry.event { color: #ffd93d; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🖐️ etee Controller Debug v4</h1>
+  <p class="subtitle">Dual controller view • Left (cyan) & Right (pink)</p>
+  
+  <div class="controls">
+    <button class="btn-connect" id="btn-connect">Connect Serial</button>
+    <button class="btn-disconnect" id="btn-disconnect" disabled>Disconnect</button>
+    <button class="btn-clear" id="btn-clear">Clear</button>
+    
+    <label>Baud:
+      <select id="baud-rate">
+        <option value="115200" selected>115200</option>
+        <option value="9600">9600</option>
+        <option value="57600">57600</option>
+      </select>
+    </label>
+    
+    <span class="status disconnected" id="status">
+      <span class="status-dot"></span>
+      <span id="status-text">Disconnected</span>
+    </span>
+  </div>
+  
+  <!-- Commands -->
+  <div class="panel">
+    <h2>Commands</h2>
+    <div class="command-section">
+      <input type="text" id="command-input" placeholder="Enter command (e.g., BP+AG)">
+      <button class="btn-command" id="btn-send">Send</button>
+    </div>
+    <div class="preset-commands">
+      <button class="preset-btn start" data-cmd="BP+AG">▶ Start Both</button>
+      <button class="preset-btn stop" data-cmd="BP+AS">⏹ Stop Both</button>
+      <button class="preset-btn start" data-cmd="LP+AG">▶ Left</button>
+      <button class="preset-btn stop" data-cmd="LP+AS">⏹ Left</button>
+      <button class="preset-btn start" data-cmd="RP+AG">▶ Right</button>
+      <button class="preset-btn stop" data-cmd="RP+AS">⏹ Right</button>
+      <button class="preset-btn" data-cmd="BP+RB">🔄 Calibrate</button>
+    </div>
+  </div>
+  
+  <!-- Dual Controller Sections -->
+  <div class="controllers-grid">
+    <!-- LEFT CONTROLLER -->
+    <div class="controller-section left inactive" id="left-section">
+      <div class="controller-header left">
+        <span class="icon">🤚</span>
+        <h3>Left Controller</h3>
+        <span class="status-badge offline" id="left-badge">Offline</span>
+      </div>
+      
+      <div class="controller-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">Packets</div>
+          <div class="mini-stat-value" id="left-packets">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Battery</div>
+          <div class="mini-stat-value" id="left-battery">-</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Grip</div>
+          <div class="mini-stat-value" id="left-grip-val">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Rate</div>
+          <div class="mini-stat-value" id="left-rate">0/s</div>
+        </div>
+      </div>
+      
+      <div class="finger-row">
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="left-f-thumb"></div></div>
+          <div class="finger-label">Thumb</div>
+          <div class="finger-value" id="left-fv-thumb">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="left-f-index"></div></div>
+          <div class="finger-label">Index</div>
+          <div class="finger-value" id="left-fv-index">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="left-f-middle"></div></div>
+          <div class="finger-label">Middle</div>
+          <div class="finger-value" id="left-fv-middle">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="left-f-ring"></div></div>
+          <div class="finger-label">Ring</div>
+          <div class="finger-value" id="left-fv-ring">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="left-f-pinky"></div></div>
+          <div class="finger-label">Pinky</div>
+          <div class="finger-value" id="left-fv-pinky">0</div>
+        </div>
+      </div>
+      
+      <div class="data-grid">
+        <div class="data-item">
+          <div class="data-label">Trackpad X</div>
+          <div class="data-value" id="left-tp-x">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Trackpad Y</div>
+          <div class="data-value" id="left-tp-y">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">TP Pull</div>
+          <div class="data-value" id="left-tp-pull">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Slider</div>
+          <div class="data-value" id="left-slider">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Pinch</div>
+          <div class="data-value" id="left-pinch">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Point</div>
+          <div class="data-value" id="left-point">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">System</div>
+          <div class="data-value" id="left-system">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Grip Click</div>
+          <div class="data-value" id="left-grip-click">-</div>
+        </div>
+      </div>
+      
+      <div class="imu-section">
+        <h4>IMU Data</h4>
+        <div class="imu-row">
+          <div class="data-item"><div class="data-label">Acc X</div><div class="data-value" id="left-ax">0</div></div>
+          <div class="data-item"><div class="data-label">Acc Y</div><div class="data-value" id="left-ay">0</div></div>
+          <div class="data-item"><div class="data-label">Acc Z</div><div class="data-value" id="left-az">0</div></div>
+        </div>
+        <div class="imu-row">
+          <div class="data-item"><div class="data-label">Gyro X</div><div class="data-value" id="left-gx">0</div></div>
+          <div class="data-item"><div class="data-label">Gyro Y</div><div class="data-value" id="left-gy">0</div></div>
+          <div class="data-item"><div class="data-label">Gyro Z</div><div class="data-value" id="left-gz">0</div></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RIGHT CONTROLLER -->
+    <div class="controller-section right inactive" id="right-section">
+      <div class="controller-header right">
+        <span class="icon">✋</span>
+        <h3>Right Controller</h3>
+        <span class="status-badge offline" id="right-badge">Offline</span>
+      </div>
+      
+      <div class="controller-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">Packets</div>
+          <div class="mini-stat-value" id="right-packets">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Battery</div>
+          <div class="mini-stat-value" id="right-battery">-</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Grip</div>
+          <div class="mini-stat-value" id="right-grip-val">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Rate</div>
+          <div class="mini-stat-value" id="right-rate">0/s</div>
+        </div>
+      </div>
+      
+      <div class="finger-row">
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="right-f-thumb"></div></div>
+          <div class="finger-label">Thumb</div>
+          <div class="finger-value" id="right-fv-thumb">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="right-f-index"></div></div>
+          <div class="finger-label">Index</div>
+          <div class="finger-value" id="right-fv-index">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="right-f-middle"></div></div>
+          <div class="finger-label">Middle</div>
+          <div class="finger-value" id="right-fv-middle">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="right-f-ring"></div></div>
+          <div class="finger-label">Ring</div>
+          <div class="finger-value" id="right-fv-ring">0</div>
+        </div>
+        <div class="finger">
+          <div class="finger-bar"><div class="finger-fill" id="right-f-pinky"></div></div>
+          <div class="finger-label">Pinky</div>
+          <div class="finger-value" id="right-fv-pinky">0</div>
+        </div>
+      </div>
+      
+      <div class="data-grid">
+        <div class="data-item">
+          <div class="data-label">Trackpad X</div>
+          <div class="data-value" id="right-tp-x">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Trackpad Y</div>
+          <div class="data-value" id="right-tp-y">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">TP Pull</div>
+          <div class="data-value" id="right-tp-pull">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Slider</div>
+          <div class="data-value" id="right-slider">0</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Pinch</div>
+          <div class="data-value" id="right-pinch">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Point</div>
+          <div class="data-value" id="right-point">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">System</div>
+          <div class="data-value" id="right-system">-</div>
+        </div>
+        <div class="data-item">
+          <div class="data-label">Grip Click</div>
+          <div class="data-value" id="right-grip-click">-</div>
+        </div>
+      </div>
+      
+      <div class="imu-section">
+        <h4>IMU Data</h4>
+        <div class="imu-row">
+          <div class="data-item"><div class="data-label">Acc X</div><div class="data-value" id="right-ax">0</div></div>
+          <div class="data-item"><div class="data-label">Acc Y</div><div class="data-value" id="right-ay">0</div></div>
+          <div class="data-item"><div class="data-label">Acc Z</div><div class="data-value" id="right-az">0</div></div>
+        </div>
+        <div class="imu-row">
+          <div class="data-item"><div class="data-label">Gyro X</div><div class="data-value" id="right-gx">0</div></div>
+          <div class="data-item"><div class="data-label">Gyro Y</div><div class="data-value" id="right-gy">0</div></div>
+          <div class="data-item"><div class="data-label">Gyro Z</div><div class="data-value" id="right-gz">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Overall Stats -->
+  <div class="panel">
+    <h2>Overall Statistics</h2>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-label">Bytes In</div>
+        <div class="stat-value" id="stat-bytes">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Total Packets</div>
+        <div class="stat-value" id="stat-packets">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Combined Rate</div>
+        <div class="stat-value" id="stat-rate">0/s</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Buffer</div>
+        <div class="stat-value" id="stat-buffer">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Text Responses</div>
+        <div class="stat-value" id="stat-responses">0</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Log -->
+  <div class="panel">
+    <h2>Communication Log</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+<script>
+const PACKET_SIZE = 44;
+
+let port = null;
+let reader = null;
+let writer = null;
+let running = false;
+
+let totalBytes = 0;
+let totalPackets = 0;
+let packetsThisSecond = 0;
+let lastRateTime = Date.now();
+let buffer = new Uint8Array(0);
+let textResponses = 0;
+
+// Per-controller state
+const controllers = {
+  left: {
+    connected: false,
+    packets: 0,
+    packetsThisSecond: 0,
+    lastTime: 0,
+    battery: '-',
+    data: {}
+  },
+  right: {
+    connected: false,
+    packets: 0,
+    packetsThisSecond: 0,
+    lastTime: 0,
+    battery: '-',
+    data: {}
+  }
+};
+
+const $ = id => document.getElementById(id);
+
+function log(msg, type = 'info') {
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  $('log').appendChild(entry);
+  $('log').scrollTop = $('log').scrollHeight;
+  while ($('log').children.length > 100) {
+    $('log').removeChild($('log').firstChild);
+  }
+}
+
+function updateControllerUI(side) {
+  const c = controllers[side];
+  const now = Date.now();
+  const isActive = c.connected && (now - c.lastTime < 500);
+  
+  const section = $(`${side}-section`);
+  const badge = $(`${side}-badge`);
+  
+  section.classList.toggle('active', isActive);
+  section.classList.toggle('inactive', !c.connected);
+  
+  if (isActive) {
+    badge.className = 'status-badge streaming';
+    badge.textContent = 'Streaming';
+  } else if (c.connected) {
+    badge.className = 'status-badge connected';
+    badge.textContent = 'Connected';
+  } else {
+    badge.className = 'status-badge offline';
+    badge.textContent = 'Offline';
+  }
+  
+  $(`${side}-packets`).textContent = c.packets;
+  $(`${side}-battery`).textContent = c.battery;
+  
+  if (c.data.gripPull !== undefined) {
+    $(`${side}-grip-val`).textContent = c.data.gripPull;
+  }
+}
+
+function updateFinger(side, name, pull, touched, clicked) {
+  const fill = $(`${side}-f-${name}`);
+  const value = $(`${side}-fv-${name}`);
+  if (!fill || !value) return;
+  
+  fill.style.height = `${(pull / 126) * 100}%`;
+  fill.classList.toggle('touched', touched && !clicked);
+  fill.classList.toggle('clicked', clicked);
+  value.textContent = pull;
+}
+
+function parsePacket(data) {
+  if (data.length < 42) return;
+  
+  // Create a proper DataView from a copy of the data
+  const dataCopy = new Uint8Array(data);
+  const dv = new DataView(dataCopy.buffer);
+  
+  // Byte 0: Button flags
+  const byte0 = dataCopy[0];
+  const systemButton = byte0 & 0x01;
+  const trackpadClicked = (byte0 >> 1) & 0x01;
+  const trackpadTouched = (byte0 >> 2) & 0x01;
+  const thumbClicked = (byte0 >> 3) & 0x01;
+  const indexClicked = (byte0 >> 4) & 0x01;
+  const middleClicked = (byte0 >> 5) & 0x01;
+  const ringClicked = (byte0 >> 6) & 0x01;
+  const pinkyClicked = (byte0 >> 7) & 0x01;
+  
+  // Finger pulls
+  const thumbTouched = dataCopy[1] & 0x01;
+  const thumbPull = (dataCopy[1] >> 1) & 0x7F;
+  const indexTouched = dataCopy[2] & 0x01;
+  const indexPull = (dataCopy[2] >> 1) & 0x7F;
+  const middleTouched = dataCopy[3] & 0x01;
+  const middlePull = (dataCopy[3] >> 1) & 0x7F;
+  const ringTouched = dataCopy[4] & 0x01;
+  const ringPull = (dataCopy[4] >> 1) & 0x7F;
+  const pinkyTouched = dataCopy[5] & 0x01;
+  const pinkyPull = (dataCopy[5] >> 1) & 0x7F;
+  
+  // Trackpad
+  const trackpadX = dataCopy[6];
+  const trackpadY = dataCopy[7];
+  
+  // Slider & Grip
+  const sliderTouched = dataCopy[9] & 0x01;
+  const sliderValue = (dataCopy[9] >> 1) & 0x7F;
+  const gripTouched = dataCopy[10] & 0x01;
+  const gripPull = (dataCopy[10] >> 1) & 0x7F;
+  
+  // Byte 11: Flags
+  const byte11 = dataCopy[11];
+  const gripClicked = byte11 & 0x01;
+  const isRightHand = (byte11 >> 3) & 0x01;
+  const batteryCharging = (byte11 >> 4) & 0x01;
+  
+  // Battery
+  const batteryLevel = (dataCopy[12] >> 1) & 0x7F;
+  
+  // Gestures
+  const trackpadPull = (dataCopy[13] >> 1) & 0x7F;
+  const pointExcludeTP = dataCopy[13] & 0x01;
+  const pointIndependent = dataCopy[14] & 0x01;
+  const pinchTPClicked = dataCopy[15] & 0x01;
+  
+  // IMU
+  const accelX = dv.getInt16(23, true);
+  const accelY = dv.getInt16(25, true);
+  const accelZ = dv.getInt16(27, true);
+  const gyroX = dv.getInt16(35, true);
+  const gyroY = dv.getInt16(37, true);
+  const gyroZ = dv.getInt16(39, true);
+  
+  // Determine which controller
+  const side = isRightHand ? 'right' : 'left';
+  const c = controllers[side];
+  const now = Date.now();
+  
+  c.connected = true;
+  c.packets++;
+  c.packetsThisSecond++;
+  c.lastTime = now;
+  c.battery = `${batteryLevel}%${batteryCharging ? '⚡' : ''}`;
+  c.data = { gripPull, trackpadX, trackpadY };
+  
+  // Update UI for this controller
+  updateFinger(side, 'thumb', thumbPull, thumbTouched, thumbClicked);
+  updateFinger(side, 'index', indexPull, indexTouched, indexClicked);
+  updateFinger(side, 'middle', middlePull, middleTouched, middleClicked);
+  updateFinger(side, 'ring', ringPull, ringTouched, ringClicked);
+  updateFinger(side, 'pinky', pinkyPull, pinkyTouched, pinkyClicked);
+  
+  $(`${side}-tp-x`).textContent = trackpadX;
+  $(`${side}-tp-y`).textContent = trackpadY;
+  $(`${side}-tp-pull`).textContent = trackpadPull;
+  $(`${side}-slider`).textContent = sliderValue;
+  $(`${side}-pinch`).textContent = pinchTPClicked ? '✓' : '-';
+  $(`${side}-point`).textContent = (pointExcludeTP || pointIndependent) ? '✓' : '-';
+  $(`${side}-system`).textContent = systemButton ? '✓' : '-';
+  $(`${side}-grip-click`).textContent = gripClicked ? '✓' : '-';
+  
+  $(`${side}-ax`).textContent = accelX;
+  $(`${side}-ay`).textContent = accelY;
+  $(`${side}-az`).textContent = accelZ;
+  $(`${side}-gx`).textContent = gyroX;
+  $(`${side}-gy`).textContent = gyroY;
+  $(`${side}-gz`).textContent = gyroZ;
+  
+  updateControllerUI(side);
+}
+
+function processTextResponse(text) {
+  textResponses++;
+  $('stat-responses').textContent = textResponses;
+  
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  
+  if (trimmed.includes('L connection complete')) {
+    controllers.left.connected = true;
+    log('🟢 LEFT controller connected!', 'event');
+    updateControllerUI('left');
+  } else if (trimmed.includes('R connection complete')) {
+    controllers.right.connected = true;
+    log('🟢 RIGHT controller connected!', 'event');
+    updateControllerUI('right');
+  } else if (trimmed.includes('L disconnected')) {
+    controllers.left.connected = false;
+    log('🔴 LEFT controller disconnected', 'event');
+    updateControllerUI('left');
+  } else if (trimmed.includes('R disconnected')) {
+    controllers.right.connected = false;
+    log('🔴 RIGHT controller disconnected', 'event');
+    updateControllerUI('right');
+  } else if (trimmed === 'OK') {
+    log('Response: OK', 'recv');
+  } else {
+    log(`Response: ${trimmed}`, 'recv');
+  }
+}
+
+async function connect() {
+  try {
+    log('Requesting serial port...');
+    port = await navigator.serial.requestPort();
+    
+    const info = port.getInfo();
+    log(`Port: VID=${info.usbVendorId?.toString(16) || '?'}, PID=${info.usbProductId?.toString(16) || '?'}`);
+    
+    const baudRate = parseInt($('baud-rate').value);
+    await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
+    
+    log(`Opened at ${baudRate} baud`, 'info');
+    
+    running = true;
+    $('btn-connect').disabled = true;
+    $('btn-disconnect').disabled = false;
+    $('status').className = 'status connected';
+    $('status-text').textContent = 'Connected';
+    
+    reader = port.readable.getReader();
+    writer = port.writable.getWriter();
+    
+    readLoop();
+    
+    // Rate counter
+    setInterval(() => {
+      const elapsed = (Date.now() - lastRateTime) / 1000;
+      const totalRate = Math.round(packetsThisSecond / elapsed);
+      const leftRate = Math.round(controllers.left.packetsThisSecond / elapsed);
+      const rightRate = Math.round(controllers.right.packetsThisSecond / elapsed);
+      
+      $('stat-rate').textContent = `${totalRate}/s`;
+      $('left-rate').textContent = `${leftRate}/s`;
+      $('right-rate').textContent = `${rightRate}/s`;
+      
+      packetsThisSecond = 0;
+      controllers.left.packetsThisSecond = 0;
+      controllers.right.packetsThisSecond = 0;
+      lastRateTime = Date.now();
+      
+      updateControllerUI('left');
+      updateControllerUI('right');
+    }, 1000);
+    
+    log('Sending BP+AG to start data stream...', 'info');
+    setTimeout(() => sendCommand('BP+AG'), 500);
+    
+  } catch (err) {
+    log(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function readLoop() {
+  try {
+    while (running) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      
+      if (value && value.length > 0) {
+        totalBytes += value.length;
+        $('stat-bytes').textContent = totalBytes;
+        
+        const newBuf = new Uint8Array(buffer.length + value.length);
+        newBuf.set(buffer);
+        newBuf.set(value, buffer.length);
+        buffer = newBuf;
+        
+        $('stat-buffer').textContent = buffer.length;
+        
+        while (buffer.length > 0) {
+          let textEnd = -1;
+          for (let i = 0; i < buffer.length - 1; i++) {
+            if (buffer[i] === 0x0D && buffer[i + 1] === 0x0A) {
+              textEnd = i;
+              break;
+            }
+          }
+          
+          let delimIdx = -1;
+          for (let i = 0; i < buffer.length - 1; i++) {
+            if (buffer[i] === 0xFF && buffer[i + 1] === 0xFF) {
+              delimIdx = i;
+              break;
+            }
+          }
+          
+          if (textEnd !== -1 && (delimIdx === -1 || textEnd < delimIdx)) {
+            const textBytes = buffer.slice(0, textEnd);
+            const text = new TextDecoder().decode(textBytes);
+            processTextResponse(text);
+            buffer = buffer.slice(textEnd + 2);
+          } else if (delimIdx !== -1 && delimIdx >= 42) {
+            const packetStart = delimIdx - 42;
+            const packet = buffer.slice(packetStart, delimIdx + 2);
+            
+            totalPackets++;
+            packetsThisSecond++;
+            $('stat-packets').textContent = totalPackets;
+            
+            parsePacket(packet);
+            buffer = buffer.slice(delimIdx + 2);
+          } else {
+            break;
+          }
+        }
+        
+        if (buffer.length > 2000) {
+          buffer = buffer.slice(-500);
+        }
+      }
+    }
+  } catch (err) {
+    if (running) log(`Read error: ${err.message}`, 'error');
+  }
+}
+
+async function sendCommand(cmd) {
+  if (!writer) {
+    log('Not connected', 'error');
+    return;
+  }
+  
+  try {
+    const data = new TextEncoder().encode(cmd + '\r\n');
+    await writer.write(data);
+    log(`Sent: ${cmd}`, 'send');
+  } catch (err) {
+    log(`Send error: ${err.message}`, 'error');
+  }
+}
+
+async function disconnect() {
+  running = false;
+  
+  if (writer) {
+    try {
+      await sendCommand('BP+AS');
+      await new Promise(r => setTimeout(r, 100));
+    } catch {}
+  }
+  
+  try {
+    if (reader) { await reader.cancel(); reader.releaseLock(); }
+    if (writer) { writer.releaseLock(); }
+    if (port) { await port.close(); }
+  } catch (err) {
+    log(`Disconnect error: ${err.message}`, 'error');
+  }
+  
+  port = null;
+  reader = null;
+  writer = null;
+  
+  $('btn-connect').disabled = false;
+  $('btn-disconnect').disabled = true;
+  $('status').className = 'status disconnected';
+  $('status-text').textContent = 'Disconnected';
+  log('Disconnected');
+}
+
+// Event listeners
+$('btn-connect').addEventListener('click', connect);
+$('btn-disconnect').addEventListener('click', disconnect);
+$('btn-clear').addEventListener('click', () => {
+  $('log').innerHTML = '';
+  totalBytes = 0;
+  totalPackets = 0;
+  textResponses = 0;
+  controllers.left.packets = 0;
+  controllers.right.packets = 0;
+  buffer = new Uint8Array(0);
+  $('stat-bytes').textContent = '0';
+  $('stat-packets').textContent = '0';
+  $('stat-responses').textContent = '0';
+  updateControllerUI('left');
+  updateControllerUI('right');
+});
+
+$('btn-send').addEventListener('click', () => {
+  const cmd = $('command-input').value.trim();
+  if (cmd) sendCommand(cmd);
+});
+
+$('command-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const cmd = $('command-input').value.trim();
+    if (cmd) sendCommand(cmd);
+  }
+});
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => sendCommand(btn.dataset.cmd));
+});
+
+// Check support
+if (!('serial' in navigator)) {
+  log('Web Serial API not supported! Use Chrome or Edge.', 'error');
+  $('btn-connect').disabled = true;
+} else {
+  log('Ready. Left controller = cyan, Right controller = pink');
+}
+</script>
+</body>
+</html>

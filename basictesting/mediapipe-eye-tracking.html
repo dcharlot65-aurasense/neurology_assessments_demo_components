@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Biosignal + Eye Tracking System v2</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0a15;
+            color: #fff;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        h1 { text-align: center; color: #00d4ff; margin-bottom: 3px; font-size: 20px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 10px; font-size: 10px; }
+        .main-container { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .video-section { display: flex; flex-direction: column; gap: 8px; }
+        .video-container { position: relative; border: 2px solid #00d4ff; border-radius: 8px; overflow: hidden; }
+        #webcam { display: block; transform: rotateY(180deg); }
+        #output_canvas { position: absolute; top: 0; left: 0; transform: rotateY(180deg); }
+        .controls { display: flex; gap: 10px; justify-content: center; align-items: center; }
+        button { padding: 8px 16px; font-size: 13px; background: #00d4ff; color: #000; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00a0cc; }
+        button:disabled { background: #333; color: #666; }
+        .status-bar { font-size: 10px; color: #888; text-align: center; background: #111; padding: 4px 8px; border-radius: 4px; }
+        .perf-stats { display: flex; gap: 15px; font-size: 10px; justify-content: center; }
+        .perf-item { color: #00ff88; }
+        .perf-label { color: #666; }
+        
+        .panels-container { display: flex; flex-direction: column; gap: 8px; width: 450px; }
+        .panel { background: #111; border: 1px solid #282828; border-radius: 6px; padding: 10px; }
+        .panel h3 { font-size: 12px; color: #00d4ff; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #282828; display: flex; align-items: center; gap: 6px; }
+        .panel-icon { font-size: 14px; }
+        .algorithm-badge { background: #1a3a1a; border: 1px solid #00ff88; color: #00ff88; padding: 1px 6px; border-radius: 8px; font-size: 8px; margin-left: auto; }
+        
+        /* Eye Tracking Panel */
+        .eye-tracking-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .gaze-target-container { position: relative; width: 140px; height: 140px; margin: 0 auto; }
+        .gaze-target { width: 140px; height: 140px; border: 2px solid #00d4ff; border-radius: 50%; position: relative; background: radial-gradient(circle at center, rgba(0, 212, 255, 0.1) 0%, rgba(0, 212, 255, 0.02) 60%, transparent 100%); }
+        .gaze-zone { position: absolute; border: 1px dashed; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .gaze-zone.center { width: 40px; height: 40px; border-color: #00ff8855; }
+        .gaze-zone.mid { width: 80px; height: 80px; border-color: #ffaa0044; }
+        .gaze-zone.outer { width: 120px; height: 120px; border-color: #ff444433; }
+        .gaze-crosshair-h, .gaze-crosshair-v { position: absolute; background: #00d4ff22; }
+        .gaze-crosshair-h { width: 100%; height: 1px; top: 50%; left: 0; }
+        .gaze-crosshair-v { width: 1px; height: 100%; top: 0; left: 50%; }
+        .gaze-dot { width: 14px; height: 14px; background: #00ff88; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: all 0.08s ease-out; box-shadow: 0 0 12px rgba(0, 255, 136, 0.7); z-index: 10; }
+        .gaze-dot.peripheral { background: #ffaa00; box-shadow: 0 0 12px rgba(255, 170, 0, 0.7); }
+        .gaze-dot.away { background: #ff4444; box-shadow: 0 0 12px rgba(255, 68, 68, 0.7); }
+        .gaze-coords { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #888; font-family: monospace; white-space: nowrap; }
+        
+        .eye-stats { display: flex; flex-direction: column; gap: 5px; }
+        .eye-stat-row { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 5px 8px; border-radius: 4px; }
+        .eye-stat-label { font-size: 10px; color: #888; }
+        .eye-stat-value { font-size: 13px; font-weight: bold; color: #00ff88; font-family: monospace; }
+        .eye-stat-value.warning { color: #ffaa00; }
+        .eye-stat-value.alert { color: #ff4444; }
+        
+        /* Enhanced Eye Detail Section */
+        .eye-detail-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .eye-detail { background: #0a0a15; border: 1px solid #282828; border-radius: 4px; padding: 8px; text-align: center; }
+        .eye-detail-label { font-size: 9px; color: #666; margin-bottom: 4px; }
+        .eye-visual { width: 60px; height: 36px; margin: 0 auto; position: relative; border: 2px solid #444; border-radius: 50%; background: #111; overflow: hidden; }
+        .iris { width: 18px; height: 18px; background: radial-gradient(circle at 30% 30%, #4488ff, #224488); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: all 0.1s ease-out; }
+        .pupil { width: 8px; height: 8px; background: #000; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .eyelid { position: absolute; width: 100%; height: 0%; background: #1a1a2e; transition: height 0.1s; }
+        .eyelid.top { top: 0; }
+        .eyelid.bottom { bottom: 0; }
+        
+        /* Eye Status Label */
+        .eye-status-label { 
+            font-size: 11px; 
+            font-weight: bold; 
+            margin-top: 4px; 
+            padding: 2px 8px; 
+            border-radius: 3px; 
+            display: inline-block;
+        }
+        .eye-status-label.open { background: #00ff8833; color: #00ff88; }
+        .eye-status-label.partial { background: #ffaa0033; color: #ffaa00; }
+        .eye-status-label.closed { background: #ff444433; color: #ff4444; }
+        
+        .eye-openness-bar { width: 100%; height: 4px; background: #222; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+        .eye-openness-fill { height: 100%; background: #00ff88; transition: width 0.1s, background 0.1s; }
+        
+        .eye-openness-value { font-size: 10px; color: #888; margin-top: 2px; font-family: monospace; }
+        
+        /* Alerts Section */
+        .alerts-container { margin-top: 8px; }
+        .alert-box { 
+            padding: 6px 10px; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alert-box.drowsiness { background: #ff880033; border: 1px solid #ff8800; color: #ff8800; }
+        .alert-box.asymmetry { background: #ff44ff33; border: 1px solid #ff44ff; color: #ff44ff; }
+        .alert-box.prolonged-closure { background: #ff444433; border: 1px solid #ff4444; color: #ff4444; }
+        .alert-box.hidden { display: none; }
+        .alert-icon { font-size: 14px; }
+        .alert-text { flex: 1; }
+        .alert-value { font-weight: bold; font-family: monospace; }
+        
+        /* Closure Duration Tracker */
+        .closure-stats { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: 6px; 
+            margin-top: 8px;
+            padding: 8px;
+            background: #0a0a15;
+            border-radius: 4px;
+        }
+        .closure-stat { text-align: center; }
+        .closure-stat-value { font-size: 16px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+        .closure-stat-label { font-size: 8px; color: #666; margin-top: 2px; }
+        
+        .attention-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+        .metric-card { background: #1a1a2e; padding: 8px 4px; border-radius: 4px; text-align: center; }
+        .metric-value { font-size: 18px; font-weight: bold; color: #00d4ff; }
+        .metric-label { font-size: 8px; color: #666; margin-top: 2px; }
+        .metric-bar { height: 3px; background: #333; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+        .metric-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
+        
+        .attention-timeline { margin-top: 8px; height: 30px; background: #050508; border: 1px solid #1a1a1a; border-radius: 4px; position: relative; overflow: hidden; }
+        .timeline-label { position: absolute; top: 2px; left: 4px; font-size: 8px; color: #444; }
+        #timelineCanvas { width: 100%; height: 100%; }
+        
+        /* Heart Rate */
+        .heart-rate-display { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 8px; }
+        .bpm-value { font-size: 44px; font-weight: bold; color: #ff4444; text-shadow: 0 0 15px rgba(255,68,68,0.4); }
+        .bpm-label { font-size: 12px; color: #888; }
+        .heart-icon { font-size: 32px; }
+        .heart-beating { animation: heartbeat 1s infinite; }
+        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.15); } 30% { transform: scale(1); } }
+        .quality-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; margin-bottom: 4px; }
+        .quality-bar { flex: 1; height: 6px; background: #222; border-radius: 3px; margin: 0 8px; overflow: hidden; }
+        .quality-fill { height: 100%; transition: width 0.3s, background 0.3s; }
+        .quality-poor { background: #ff4444; }
+        .quality-fair { background: #ffaa00; }
+        .quality-good { background: #00ff88; }
+        .waveform-container { background: #050508; border: 1px solid #1a1a1a; border-radius: 4px; height: 70px; position: relative; }
+        #ppgCanvas { width: 100%; height: 100%; }
+        .waveform-label { position: absolute; top: 3px; left: 6px; font-size: 8px; color: #444; }
+        .roi-debug { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 6px; font-size: 9px; }
+        .roi-item { background: #1a1a2e; padding: 4px; border-radius: 3px; text-align: center; }
+        .roi-label { color: #666; font-size: 8px; }
+        .roi-value { color: #00ff88; font-family: monospace; font-size: 8px; }
+        
+        /* Hand Tracking */
+        .hands-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .hand-card { background: #1a1a2e; padding: 8px; border-radius: 6px; text-align: center; }
+        .hand-card.inactive { opacity: 0.4; }
+        .hand-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+        .hand-status { font-size: 18px; font-weight: bold; }
+        .pinch-yes { color: #00ff88; }
+        .pinch-no { color: #666; }
+        .hand-closed { color: #ff8800; }
+        .hand-debug { font-size: 8px; color: #888; margin-top: 4px; font-family: monospace; line-height: 1.3; }
+        .hand-pos { font-size: 9px; color: #666; margin-top: 2px; }
+        
+        /* Sentiment */
+        .sentiment-compact { display: flex; gap: 4px; }
+        .sentiment-item { flex: 1; text-align: center; padding: 4px; background: #1a1a2e; border-radius: 4px; }
+        .sentiment-emoji { font-size: 16px; }
+        .sentiment-value { font-size: 10px; color: #888; }
+        .sentiment-bar-mini { height: 3px; background: #333; border-radius: 2px; margin-top: 3px; overflow: hidden; }
+        .sentiment-fill-mini { height: 100%; border-radius: 2px; transition: width 0.2s; }
+        
+        /* Head Pose */
+        .head-pose-compact { display: flex; align-items: center; justify-content: space-around; }
+        .pose-indicator { width: 50px; height: 50px; border: 2px solid #aa88ff; border-radius: 50%; position: relative; background: radial-gradient(circle at center, #aa88ff10 0%, transparent 70%); }
+        .pose-dot { width: 10px; height: 10px; background: #aa88ff; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: all 0.1s; box-shadow: 0 0 8px rgba(170,136,255,0.5); }
+        .pose-values { display: flex; gap: 12px; }
+        .pose-axis { text-align: center; }
+        .pose-value { font-size: 16px; font-weight: bold; color: #aa88ff; }
+        .pose-label { font-size: 8px; color: #666; }
+        
+        #loading { text-align: center; padding: 40px; color: #ffaa00; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <h1>👁️🖐️ Complete Tracking System v2</h1>
+    <p class="subtitle">Eye State Detection • Drowsiness • Asymmetry • Attention Analysis • Hand Tracking • rPPG</p>
+    
+    <div id="loading">Loading MediaPipe models...</div>
+    
+    <div id="demos" style="display: none;">
+        <div class="main-container">
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="webcam" width="640" height="480" autoplay playsinline></video>
+                    <canvas id="output_canvas" width="640" height="480"></canvas>
+                </div>
+                <div class="controls">
+                    <button id="webcamButton">📷 START</button>
+                    <div class="status-bar" id="statusBar">Ready</div>
+                </div>
+                <div class="perf-stats">
+                    <span><span class="perf-label">FPS:</span> <span class="perf-item" id="fpsValue">--</span></span>
+                    <span><span class="perf-label">Process:</span> <span class="perf-item" id="procTime">--</span></span>
+                    <span><span class="perf-label">Frame:</span> <span class="perf-item" id="frameCount">0</span></span>
+                </div>
+            </div>
+            
+            <div class="panels-container">
+                <!-- Eye Tracking Panel -->
+                <div class="panel">
+                    <h3><span class="panel-icon">👁️</span> Eye Gaze & Attention <span class="algorithm-badge">Iris + Blendshapes</span></h3>
+                    <div class="eye-tracking-container">
+                        <div>
+                            <div class="gaze-target-container">
+                                <div class="gaze-target">
+                                    <div class="gaze-zone outer"></div>
+                                    <div class="gaze-zone mid"></div>
+                                    <div class="gaze-zone center"></div>
+                                    <div class="gaze-crosshair-h"></div>
+                                    <div class="gaze-crosshair-v"></div>
+                                    <div class="gaze-dot" id="gazeDot"></div>
+                                </div>
+                                <div class="gaze-coords" id="gazeCoords">X: 0.00 Y: 0.00</div>
+                            </div>
+                        </div>
+                        <div class="eye-stats">
+                            <div class="eye-stat-row">
+                                <span class="eye-stat-label">Gaze Zone</span>
+                                <span class="eye-stat-value" id="gazeZone">CENTER</span>
+                            </div>
+                            <div class="eye-stat-row">
+                                <span class="eye-stat-label">Fixation</span>
+                                <span class="eye-stat-value" id="fixationStatus">STABLE</span>
+                            </div>
+                            <div class="eye-stat-row">
+                                <span class="eye-stat-label">Saccades/min</span>
+                                <span class="eye-stat-value" id="saccadeRate">0</span>
+                            </div>
+                            <div class="eye-stat-row">
+                                <span class="eye-stat-label">Attention</span>
+                                <span class="eye-stat-value" id="attentionLevel">100%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Enhanced Eye Detail with Status Labels -->
+                    <div class="eye-detail-container">
+                        <div class="eye-detail">
+                            <div class="eye-detail-label">Left Eye</div>
+                            <div class="eye-visual">
+                                <div class="eyelid top" id="leftEyelidTop"></div>
+                                <div class="iris" id="leftIris"><div class="pupil"></div></div>
+                                <div class="eyelid bottom" id="leftEyelidBottom"></div>
+                            </div>
+                            <div class="eye-status-label open" id="leftEyeStatus">OPEN</div>
+                            <div class="eye-openness-bar"><div class="eye-openness-fill" id="leftEyeOpenness" style="width: 100%"></div></div>
+                            <div class="eye-openness-value" id="leftEyeValue">100%</div>
+                        </div>
+                        <div class="eye-detail">
+                            <div class="eye-detail-label">Right Eye</div>
+                            <div class="eye-visual">
+                                <div class="eyelid top" id="rightEyelidTop"></div>
+                                <div class="iris" id="rightIris"><div class="pupil"></div></div>
+                                <div class="eyelid bottom" id="rightEyelidBottom"></div>
+                            </div>
+                            <div class="eye-status-label open" id="rightEyeStatus">OPEN</div>
+                            <div class="eye-openness-bar"><div class="eye-openness-fill" id="rightEyeOpenness" style="width: 100%"></div></div>
+                            <div class="eye-openness-value" id="rightEyeValue">100%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Closure Duration Stats -->
+                    <div class="closure-stats">
+                        <div class="closure-stat">
+                            <div class="closure-stat-value" id="currentClosureDuration">0.0s</div>
+                            <div class="closure-stat-label">Current Closure</div>
+                        </div>
+                        <div class="closure-stat">
+                            <div class="closure-stat-value" id="maxClosureDuration">0.0s</div>
+                            <div class="closure-stat-label">Max Closure</div>
+                        </div>
+                        <div class="closure-stat">
+                            <div class="closure-stat-value" id="avgClosureDuration">0.0s</div>
+                            <div class="closure-stat-label">Avg Closure</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Alert Boxes -->
+                    <div class="alerts-container">
+                        <div class="alert-box drowsiness hidden" id="drowsinessAlert">
+                            <span class="alert-icon">😴</span>
+                            <span class="alert-text">DROWSINESS DETECTED - Eyes partially closed for <span class="alert-value" id="drowsinessTime">0.0s</span></span>
+                        </div>
+                        <div class="alert-box asymmetry hidden" id="asymmetryAlert">
+                            <span class="alert-icon">⚠️</span>
+                            <span class="alert-text">ASYMMETRY DETECTED - Difference: <span class="alert-value" id="asymmetryValue">0%</span></span>
+                        </div>
+                        <div class="alert-box prolonged-closure hidden" id="prolongedClosureAlert">
+                            <span class="alert-icon">🚨</span>
+                            <span class="alert-text">PROLONGED CLOSURE - Eyes closed for <span class="alert-value" id="prolongedClosureTime">0.0s</span></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Attention Metrics -->
+                    <div class="attention-metrics">
+                        <div class="metric-card">
+                            <div class="metric-value" id="centerTimePercent">--%</div>
+                            <div class="metric-label">Center Time</div>
+                            <div class="metric-bar"><div class="metric-fill" id="centerTimeFill" style="width:0%; background:#00ff88;"></div></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="blinkRateValue">--</div>
+                            <div class="metric-label">Blinks/min</div>
+                            <div class="metric-bar"><div class="metric-fill" id="blinkRateFill" style="width:0%; background:#00d4ff;"></div></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="focusScoreValue">--</div>
+                            <div class="metric-label">Focus Score</div>
+                            <div class="metric-bar"><div class="metric-fill" id="focusScoreFill" style="width:0%; background:#aa88ff;"></div></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="sessionTime">0:00</div>
+                            <div class="metric-label">Session</div>
+                        </div>
+                    </div>
+                    
+                    <div class="attention-timeline">
+                        <span class="timeline-label">Attention History (30s)</span>
+                        <canvas id="timelineCanvas"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Hand Tracking Panel -->
+                <div class="panel">
+                    <h3><span class="panel-icon">🖐️</span> Hand Tracking <span class="algorithm-badge">MediaPipe Hands</span></h3>
+                    <div class="hands-grid">
+                        <div class="hand-card" id="leftHandCard"><div class="hand-label">Left Hand</div><div class="hand-status pinch-no" id="leftHandStatus">--</div><div class="hand-pos" id="leftHandPos">Not detected</div><div class="hand-debug" id="leftHandDebug"></div></div>
+                        <div class="hand-card" id="rightHandCard"><div class="hand-label">Right Hand</div><div class="hand-status pinch-no" id="rightHandStatus">--</div><div class="hand-pos" id="rightHandPos">Not detected</div><div class="hand-debug" id="rightHandDebug"></div></div>
+                    </div>
+                </div>
+                
+                <!-- Heart Rate Panel -->
+                <div class="panel">
+                    <h3><span class="panel-icon">❤️</span> Heart Rate <span class="algorithm-badge">GRGB rPPG</span></h3>
+                    <div class="heart-rate-display"><span class="heart-icon" id="heartIcon">❤️</span><div><div class="bpm-value" id="bpmValue">--</div><div class="bpm-label">BPM</div></div></div>
+                    <div class="quality-row"><span>Quality</span><div class="quality-bar"><div class="quality-fill quality-poor" id="qualityFill" style="width: 0%"></div></div><span id="qualityText">--</span></div>
+                    <div class="waveform-container"><span class="waveform-label">GRGB Signal</span><canvas id="ppgCanvas"></canvas></div>
+                    <div class="roi-debug"><div class="roi-item"><div class="roi-label">Forehead</div><div class="roi-value" id="roiForehead">--</div></div><div class="roi-item"><div class="roi-label">L.Cheek</div><div class="roi-value" id="roiLeftCheek">--</div></div><div class="roi-item"><div class="roi-label">R.Cheek</div><div class="roi-value" id="roiRightCheek">--</div></div></div>
+                </div>
+                
+                <!-- Sentiment Panel -->
+                <div class="panel">
+                    <h3><span class="panel-icon">😊</span> Sentiment</h3>
+                    <div class="sentiment-compact">
+                        <div class="sentiment-item"><div class="sentiment-emoji">😊</div><div class="sentiment-value" id="happyValue">0%</div><div class="sentiment-bar-mini"><div class="sentiment-fill-mini" id="happyBar" style="width:0%; background:#00ff88;"></div></div></div>
+                        <div class="sentiment-item"><div class="sentiment-emoji">😢</div><div class="sentiment-value" id="sadValue">0%</div><div class="sentiment-bar-mini"><div class="sentiment-fill-mini" id="sadBar" style="width:0%; background:#4488ff;"></div></div></div>
+                        <div class="sentiment-item"><div class="sentiment-emoji">😠</div><div class="sentiment-value" id="angryValue">0%</div><div class="sentiment-bar-mini"><div class="sentiment-fill-mini" id="angryBar" style="width:0%; background:#ff4444;"></div></div></div>
+                        <div class="sentiment-item"><div class="sentiment-emoji">😲</div><div class="sentiment-value" id="surpriseValue">0%</div><div class="sentiment-bar-mini"><div class="sentiment-fill-mini" id="surpriseBar" style="width:0%; background:#ffaa00;"></div></div></div>
+                        <div class="sentiment-item"><div class="sentiment-emoji">😐</div><div class="sentiment-value" id="neutralValue">0%</div><div class="sentiment-bar-mini"><div class="sentiment-fill-mini" id="neutralBar" style="width:0%; background:#888;"></div></div></div>
+                    </div>
+                </div>
+                
+                <!-- Head Pose Panel -->
+                <div class="panel">
+                    <h3><span class="panel-icon">🗣️</span> Head Pose</h3>
+                    <div class="head-pose-compact">
+                        <div class="pose-indicator"><div class="pose-dot" id="poseDot"></div></div>
+                        <div class="pose-values">
+                            <div class="pose-axis"><div class="pose-value" id="yawValue">0°</div><div class="pose-label">Yaw</div></div>
+                            <div class="pose-axis"><div class="pose-value" id="pitchValue">0°</div><div class="pose-label">Pitch</div></div>
+                            <div class="pose-axis"><div class="pose-value" id="rollValue">0°</div><div class="pose-label">Roll</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { HandLandmarker, FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+        // DOM Elements
+        const loading = document.getElementById('loading');
+        const demosSection = document.getElementById('demos');
+        const video = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const ppgCanvas = document.getElementById('ppgCanvas');
+        const ppgCtx = ppgCanvas.getContext('2d');
+        const timelineCanvas = document.getElementById('timelineCanvas');
+        const timelineCtx = timelineCanvas.getContext('2d');
+        const webcamButton = document.getElementById('webcamButton');
+        const statusBar = document.getElementById('statusBar');
+
+        const fpsValueEl = document.getElementById('fpsValue');
+        const procTimeEl = document.getElementById('procTime');
+        const frameCountEl = document.getElementById('frameCount');
+
+        // Eye tracking elements
+        const gazeDot = document.getElementById('gazeDot');
+        const gazeCoords = document.getElementById('gazeCoords');
+        const gazeZoneEl = document.getElementById('gazeZone');
+        const fixationStatusEl = document.getElementById('fixationStatus');
+        const saccadeRateEl = document.getElementById('saccadeRate');
+        const attentionLevelEl = document.getElementById('attentionLevel');
+        const centerTimePercentEl = document.getElementById('centerTimePercent');
+        const blinkRateValueEl = document.getElementById('blinkRateValue');
+        const focusScoreValueEl = document.getElementById('focusScoreValue');
+        const sessionTimeEl = document.getElementById('sessionTime');
+        
+        // Eye visual elements
+        const leftIrisEl = document.getElementById('leftIris');
+        const rightIrisEl = document.getElementById('rightIris');
+        const leftEyelidTop = document.getElementById('leftEyelidTop');
+        const leftEyelidBottom = document.getElementById('leftEyelidBottom');
+        const rightEyelidTop = document.getElementById('rightEyelidTop');
+        const rightEyelidBottom = document.getElementById('rightEyelidBottom');
+        const leftEyeOpenness = document.getElementById('leftEyeOpenness');
+        const rightEyeOpenness = document.getElementById('rightEyeOpenness');
+        const leftEyeStatus = document.getElementById('leftEyeStatus');
+        const rightEyeStatus = document.getElementById('rightEyeStatus');
+        const leftEyeValue = document.getElementById('leftEyeValue');
+        const rightEyeValue = document.getElementById('rightEyeValue');
+        
+        // Closure stats elements
+        const currentClosureDuration = document.getElementById('currentClosureDuration');
+        const maxClosureDuration = document.getElementById('maxClosureDuration');
+        const avgClosureDuration = document.getElementById('avgClosureDuration');
+        
+        // Alert elements
+        const drowsinessAlert = document.getElementById('drowsinessAlert');
+        const drowsinessTime = document.getElementById('drowsinessTime');
+        const asymmetryAlert = document.getElementById('asymmetryAlert');
+        const asymmetryValue = document.getElementById('asymmetryValue');
+        const prolongedClosureAlert = document.getElementById('prolongedClosureAlert');
+        const prolongedClosureTime = document.getElementById('prolongedClosureTime');
+        
+        const centerTimeFill = document.getElementById('centerTimeFill');
+        const blinkRateFill = document.getElementById('blinkRateFill');
+        const focusScoreFill = document.getElementById('focusScoreFill');
+
+        // Other elements
+        const bpmValue = document.getElementById('bpmValue');
+        const heartIcon = document.getElementById('heartIcon');
+        const qualityFill = document.getElementById('qualityFill');
+        const qualityText = document.getElementById('qualityText');
+        const roiForehead = document.getElementById('roiForehead');
+        const roiLeftCheek = document.getElementById('roiLeftCheek');
+        const roiRightCheek = document.getElementById('roiRightCheek');
+        const poseDot = document.getElementById('poseDot');
+        const yawValue = document.getElementById('yawValue');
+        const pitchValue = document.getElementById('pitchValue');
+        const rollValue = document.getElementById('rollValue');
+
+        // State
+        let handLandmarker = null, faceLandmarker = null, drawingUtils = null;
+        let webcamRunning = false, lastVideoTime = -1, frameCount = 0;
+        let lastFpsTime = performance.now(), fpsFrameCount = 0;
+        let lastHandResults = null, lastFaceResults = null;
+
+        // Eye landmark indices
+        const EYE = {
+            leftIris: 468, rightIris: 473,
+            leftOuter: 33, leftInner: 133, leftTop: 159, leftBottom: 145,
+            rightOuter: 362, rightInner: 263, rightTop: 386, rightBottom: 374
+        };
+
+        // ROI landmarks for rPPG
+        const ROI = {
+            forehead: [107, 66, 69, 109, 10, 338, 299, 296, 336, 9],
+            leftCheek: [118, 119, 100, 126, 209, 49, 129, 203, 205, 50],
+            rightCheek: [347, 348, 329, 355, 429, 279, 358, 423, 425, 280]
+        };
+
+        // Enhanced Eye tracking state
+        const eye = {
+            gazeX: 0, gazeY: 0, smoothX: 0, smoothY: 0, smoothing: 0.35,
+            leftGazeX: 0, leftGazeY: 0, rightGazeX: 0, rightGazeY: 0,
+            leftOpenness: 1, rightOpenness: 1,
+            
+            // Eye state classification
+            leftState: 'OPEN',   // OPEN, PARTIAL, CLOSED
+            rightState: 'OPEN',
+            
+            // Closure tracking
+            closureStartTime: null,
+            currentClosureDuration: 0,
+            maxClosureDuration: 0,
+            closureDurations: [],  // Array of completed closure durations
+            avgClosureDuration: 0,
+            
+            // Drowsiness detection
+            drowsinessStartTime: null,
+            isDrowsy: false,
+            drowsinessDuration: 0,
+            drowsinessThresholdLow: 0.3,  // Openness below this = partial/drowsy
+            drowsinessThresholdHigh: 0.7, // Openness above this = fully open
+            drowsinessTimeThreshold: 2000, // 2 seconds of partial closure = drowsy
+            
+            // Asymmetry detection
+            asymmetryValue: 0,
+            isAsymmetric: false,
+            asymmetryThreshold: 0.25, // 25% difference triggers alert
+            
+            // Prolonged closure detection
+            prolongedClosureThreshold: 3000, // 3 seconds = prolonged
+            isProlongedClosure: false,
+            
+            zone: 'CENTER', zoneHistory: [], zoneHistoryLen: 900,
+            gazeHistory: [], gazeHistoryLen: 180,
+            isFixating: true, fixationThreshold: 0.08, fixationDuration: 0, fixationStart: 0,
+            saccadeTimestamps: [], saccadeThreshold: 0.15, lastX: 0, lastY: 0,
+            blinkTimestamps: [], blinkThreshold: 0.3, lastBlinkState: false,
+            attentionScore: 100, centerTimeRatio: 1, sessionStart: 0
+        };
+
+        const attentionTimeline = { data: [], maxLen: 900 };
+
+        // rPPG state
+        const rPPG = {
+            signal: [], filtered: [], timestamps: [],
+            bufferSize: 300, minSamples: 90, bpm: 0, quality: 0, calibrating: true
+        };
+
+        // Sentiment state
+        const sentiment = { happy: 0, sad: 0, angry: 0, surprise: 0, neutral: 100, smoothing: 0.85 };
+
+        // Head pose state
+        const headPose = { yaw: 0, pitch: 0, roll: 0 };
+
+        // Hands state
+        const hands = { left: { detected: false, gesture: 'open', x: 0, y: 0 }, right: { detected: false, gesture: 'open', x: 0, y: 0 } };
+        const HL = { WRIST: 0, THUMB_TIP: 4, INDEX_MCP: 5, INDEX_PIP: 6, INDEX_TIP: 8, MIDDLE_MCP: 9, MIDDLE_PIP: 10, MIDDLE_TIP: 12, RING_MCP: 13, RING_PIP: 14, RING_TIP: 16, PINKY_MCP: 17, PINKY_PIP: 18, PINKY_TIP: 20, THUMB_MCP: 2 };
+
+        // Initialize
+        async function init() {
+            loading.textContent = 'Loading MediaPipe...';
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            
+            loading.textContent = 'Loading Hand Landmarker...';
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
+                runningMode: "VIDEO", numHands: 2
+            });
+            
+            loading.textContent = 'Loading Face Landmarker...';
+            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: "GPU" },
+                outputFaceBlendshapes: true, runningMode: "VIDEO", numFaces: 1
+            });
+            
+            loading.style.display = 'none';
+            demosSection.style.display = 'block';
+            statusBar.textContent = 'Ready - Click START';
+            timelineCanvas.width = timelineCanvas.offsetWidth;
+            timelineCanvas.height = timelineCanvas.offsetHeight;
+        }
+
+        function enableCam() {
+            if (!handLandmarker || !faceLandmarker) return;
+            if (webcamRunning) {
+                webcamRunning = false;
+                webcamButton.textContent = '📷 START';
+                statusBar.textContent = 'Stopped';
+                return;
+            }
+            webcamRunning = true;
+            webcamButton.textContent = '⏹️ STOP';
+            
+            // Reset state
+            Object.assign(rPPG, { signal: [], filtered: [], timestamps: [], bpm: 0, quality: 0, calibrating: true });
+            Object.assign(eye, { 
+                zoneHistory: [], gazeHistory: [], saccadeTimestamps: [], blinkTimestamps: [], 
+                sessionStart: performance.now(),
+                closureStartTime: null, currentClosureDuration: 0, maxClosureDuration: 0,
+                closureDurations: [], avgClosureDuration: 0,
+                drowsinessStartTime: null, isDrowsy: false, drowsinessDuration: 0,
+                isAsymmetric: false, isProlongedClosure: false
+            });
+            attentionTimeline.data = [];
+            frameCount = 0;
+            
+            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: { ideal: 30 } } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.addEventListener('loadeddata', () => {
+                        drawingUtils = new DrawingUtils(canvasCtx);
+                        ppgCanvas.width = ppgCanvas.offsetWidth;
+                        ppgCanvas.height = ppgCanvas.offsetHeight;
+                        timelineCanvas.width = timelineCanvas.offsetWidth;
+                        timelineCanvas.height = timelineCanvas.offsetHeight;
+                        predict();
+                    });
+                })
+                .catch(err => {
+                    statusBar.textContent = 'Camera error: ' + err.message;
+                    webcamRunning = false;
+                    webcamButton.textContent = '📷 START';
+                });
+        }
+
+        async function predict() {
+            if (!webcamRunning) return;
+            
+            canvasElement.width = video.videoWidth;
+            canvasElement.height = video.videoHeight;
+            const startTimeMs = performance.now();
+            frameCount++;
+            
+            const shouldProcess = (frameCount % 2 === 0) && (lastVideoTime !== video.currentTime);
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            if (shouldProcess) {
+                lastVideoTime = video.currentTime;
+                const procStart = performance.now();
+                [lastHandResults, lastFaceResults] = await Promise.all([
+                    Promise.resolve(handLandmarker.detectForVideo(video, startTimeMs)),
+                    Promise.resolve(faceLandmarker.detectForVideo(video, startTimeMs))
+                ]);
+                procTimeEl.textContent = (performance.now() - procStart).toFixed(0) + 'ms';
+            }
+            
+            if (lastHandResults) processHands(lastHandResults);
+            if (lastFaceResults) processFace(lastFaceResults);
+            
+            drawPPGWaveform();
+            drawTimeline();
+            updateDisplays();
+            
+            fpsFrameCount++;
+            if (performance.now() - lastFpsTime >= 1000) {
+                fpsValueEl.textContent = fpsFrameCount;
+                fpsFrameCount = 0;
+                lastFpsTime = performance.now();
+            }
+            frameCountEl.textContent = frameCount;
+            statusBar.textContent = `Running | Buffer: ${rPPG.signal.length}/${rPPG.bufferSize}`;
+            
+            requestAnimationFrame(predict);
+        }
+
+        // Enhanced Eye tracking processing
+        function processEyeTracking(landmarks, blendshapes) {
+            const now = performance.now();
+            const li = landmarks[EYE.leftIris], ri = landmarks[EYE.rightIris];
+            if (!li || !ri) return;
+            
+            // Left eye gaze calculation
+            const lo = landmarks[EYE.leftOuter], lin = landmarks[EYE.leftInner];
+            const lt = landmarks[EYE.leftTop], lb = landmarks[EYE.leftBottom];
+            const lw = Math.abs(lin.x - lo.x), lh = Math.abs(lb.y - lt.y);
+            const lcx = (lo.x + lin.x) / 2, lcy = (lt.y + lb.y) / 2;
+            eye.leftGazeX = (li.x - lcx) / (lw / 2 + 0.001);
+            eye.leftGazeY = (li.y - lcy) / (lh / 2 + 0.001);
+            
+            // Right eye gaze calculation
+            const ro = landmarks[EYE.rightOuter], rin = landmarks[EYE.rightInner];
+            const rt = landmarks[EYE.rightTop], rb = landmarks[EYE.rightBottom];
+            const rw = Math.abs(ro.x - rin.x), rh = Math.abs(rb.y - rt.y);
+            const rcx = (ro.x + rin.x) / 2, rcy = (rt.y + rb.y) / 2;
+            eye.rightGazeX = (ri.x - rcx) / (rw / 2 + 0.001);
+            eye.rightGazeY = (ri.y - rcy) / (rh / 2 + 0.001);
+            
+            // Combined gaze
+            const rawX = (eye.leftGazeX + eye.rightGazeX) / 2;
+            const rawY = (eye.leftGazeY + eye.rightGazeY) / 2;
+            eye.gazeX = Math.max(-1, Math.min(1, rawX * 2.5));
+            eye.gazeY = Math.max(-1, Math.min(1, rawY * 3.0));
+            
+            // Smooth
+            eye.smoothX = eye.smoothX * (1 - eye.smoothing) + eye.gazeX * eye.smoothing;
+            eye.smoothY = eye.smoothY * (1 - eye.smoothing) + eye.gazeY * eye.smoothing;
+            
+            // History
+            eye.gazeHistory.push({ x: eye.smoothX, y: eye.smoothY, t: now });
+            if (eye.gazeHistory.length > eye.gazeHistoryLen) eye.gazeHistory.shift();
+            
+            // Zone detection
+            const mag = Math.sqrt(eye.smoothX * eye.smoothX + eye.smoothY * eye.smoothY);
+            eye.zone = mag < 0.3 ? 'CENTER' : mag < 0.7 ? 'PERIPHERAL' : 'AWAY';
+            eye.zoneHistory.push(eye.zone);
+            if (eye.zoneHistory.length > eye.zoneHistoryLen) eye.zoneHistory.shift();
+            
+            // Saccade detection
+            const vel = Math.sqrt(Math.pow(eye.smoothX - eye.lastX, 2) + Math.pow(eye.smoothY - eye.lastY, 2));
+            if (vel > eye.saccadeThreshold) {
+                eye.saccadeTimestamps.push(now);
+                eye.isFixating = false;
+                eye.fixationDuration = 0;
+            } else {
+                if (!eye.isFixating) { eye.isFixating = true; eye.fixationStart = now; }
+                eye.fixationDuration = now - eye.fixationStart;
+            }
+            eye.saccadeTimestamps = eye.saccadeTimestamps.filter(t => now - t < 60000);
+            eye.lastX = eye.smoothX;
+            eye.lastY = eye.smoothY;
+            
+            // Eye openness from blendshapes
+            if (blendshapes?.length > 0) {
+                const shapes = blendshapes[0].categories;
+                const lb = shapes.find(s => s.categoryName === 'eyeBlinkLeft')?.score || 0;
+                const rb = shapes.find(s => s.categoryName === 'eyeBlinkRight')?.score || 0;
+                eye.leftOpenness = 1 - lb;
+                eye.rightOpenness = 1 - rb;
+                
+                // ============================================
+                // 1. EYE STATE CLASSIFICATION (OPEN/PARTIAL/CLOSED)
+                // ============================================
+                eye.leftState = classifyEyeState(eye.leftOpenness);
+                eye.rightState = classifyEyeState(eye.rightOpenness);
+                
+                // ============================================
+                // 2. DROWSINESS DETECTION
+                // ============================================
+                const avgOpenness = (eye.leftOpenness + eye.rightOpenness) / 2;
+                const isPartiallyOpen = avgOpenness > 0.1 && avgOpenness < eye.drowsinessThresholdHigh;
+                
+                if (isPartiallyOpen) {
+                    if (!eye.drowsinessStartTime) {
+                        eye.drowsinessStartTime = now;
+                    }
+                    eye.drowsinessDuration = now - eye.drowsinessStartTime;
+                    eye.isDrowsy = eye.drowsinessDuration > eye.drowsinessTimeThreshold;
+                } else {
+                    eye.drowsinessStartTime = null;
+                    eye.drowsinessDuration = 0;
+                    eye.isDrowsy = false;
+                }
+                
+                // ============================================
+                // 3. EYE CLOSURE DURATION TRACKING
+                // ============================================
+                const bothEyesClosed = eye.leftOpenness < 0.2 && eye.rightOpenness < 0.2;
+                
+                if (bothEyesClosed) {
+                    if (!eye.closureStartTime) {
+                        eye.closureStartTime = now;
+                    }
+                    eye.currentClosureDuration = now - eye.closureStartTime;
+                    
+                    // Update max
+                    if (eye.currentClosureDuration > eye.maxClosureDuration) {
+                        eye.maxClosureDuration = eye.currentClosureDuration;
+                    }
+                    
+                    // Check for prolonged closure
+                    eye.isProlongedClosure = eye.currentClosureDuration > eye.prolongedClosureThreshold;
+                } else {
+                    // Eyes opened - record the closure if it was significant
+                    if (eye.closureStartTime && eye.currentClosureDuration > 100) {
+                        eye.closureDurations.push(eye.currentClosureDuration);
+                        // Keep last 50 closures
+                        if (eye.closureDurations.length > 50) eye.closureDurations.shift();
+                        // Calculate average
+                        eye.avgClosureDuration = eye.closureDurations.reduce((a, b) => a + b, 0) / eye.closureDurations.length;
+                    }
+                    eye.closureStartTime = null;
+                    eye.currentClosureDuration = 0;
+                    eye.isProlongedClosure = false;
+                }
+                
+                // ============================================
+                // 4. ASYMMETRY DETECTION
+                // ============================================
+                eye.asymmetryValue = Math.abs(eye.leftOpenness - eye.rightOpenness);
+                eye.isAsymmetric = eye.asymmetryValue > eye.asymmetryThreshold;
+                
+                // Blink detection
+                const avgBlink = (lb + rb) / 2;
+                const isBlinking = avgBlink > eye.blinkThreshold;
+                if (!eye.lastBlinkState && isBlinking) eye.blinkTimestamps.push(now);
+                eye.lastBlinkState = isBlinking;
+                eye.blinkTimestamps = eye.blinkTimestamps.filter(t => now - t < 60000);
+            }
+            
+            calculateAttention();
+            updateEyeUI();
+        }
+        
+        function classifyEyeState(openness) {
+            if (openness >= 0.7) return 'OPEN';
+            if (openness >= 0.2) return 'PARTIAL';
+            return 'CLOSED';
+        }
+
+        function calculateAttention() {
+            if (eye.zoneHistory.length > 0) {
+                const centerCount = eye.zoneHistory.filter(z => z === 'CENTER').length;
+                eye.centerTimeRatio = centerCount / eye.zoneHistory.length;
+            }
+            
+            const saccadeRate = eye.saccadeTimestamps.length;
+            const blinkRate = eye.blinkTimestamps.length;
+            
+            const centerScore = Math.min(100, eye.centerTimeRatio * 140);
+            const fixationScore = eye.isFixating ? 100 : 50;
+            let blinkScore = blinkRate < 8 ? 60 : blinkRate > 25 ? 70 : (blinkRate >= 12 && blinkRate <= 20) ? 100 : 85;
+            let saccadeScore = saccadeRate < 10 ? 90 : saccadeRate > 40 ? 60 : 100 - (saccadeRate - 10) * 1.5;
+            
+            // Penalize attention score for drowsiness or closed eyes
+            let drowsinessPenalty = 0;
+            if (eye.isDrowsy) drowsinessPenalty = 30;
+            if (eye.isProlongedClosure) drowsinessPenalty = 50;
+            
+            eye.attentionScore = Math.max(0, Math.round(centerScore * 0.4 + fixationScore * 0.3 + blinkScore * 0.15 + saccadeScore * 0.15) - drowsinessPenalty);
+            
+            attentionTimeline.data.push(eye.attentionScore);
+            if (attentionTimeline.data.length > attentionTimeline.maxLen) attentionTimeline.data.shift();
+        }
+
+        function updateEyeUI() {
+            // Gaze dot position
+            const dotX = 50 + eye.smoothX * 45;
+            const dotY = 50 + eye.smoothY * 45;
+            gazeDot.style.left = `${Math.max(5, Math.min(95, dotX))}%`;
+            gazeDot.style.top = `${Math.max(5, Math.min(95, dotY))}%`;
+            
+            gazeDot.classList.remove('peripheral', 'away');
+            if (eye.zone === 'PERIPHERAL') gazeDot.classList.add('peripheral');
+            else if (eye.zone === 'AWAY') gazeDot.classList.add('away');
+            
+            gazeCoords.textContent = `X: ${eye.smoothX.toFixed(2)} Y: ${eye.smoothY.toFixed(2)}`;
+            
+            gazeZoneEl.textContent = eye.zone;
+            gazeZoneEl.className = 'eye-stat-value' + (eye.zone === 'PERIPHERAL' ? ' warning' : eye.zone === 'AWAY' ? ' alert' : '');
+            
+            fixationStatusEl.textContent = eye.isFixating ? `STABLE (${(eye.fixationDuration / 1000).toFixed(1)}s)` : 'MOVING';
+            fixationStatusEl.className = 'eye-stat-value' + (eye.isFixating ? '' : ' warning');
+            
+            saccadeRateEl.textContent = eye.saccadeTimestamps.length;
+            
+            attentionLevelEl.textContent = `${eye.attentionScore}%`;
+            attentionLevelEl.className = 'eye-stat-value' + (eye.attentionScore < 50 ? ' alert' : eye.attentionScore < 75 ? ' warning' : '');
+            
+            const cp = Math.round(eye.centerTimeRatio * 100);
+            centerTimePercentEl.textContent = `${cp}%`;
+            centerTimeFill.style.width = `${cp}%`;
+            centerTimeFill.style.background = cp > 50 ? '#00ff88' : '#ffaa00';
+            
+            blinkRateValueEl.textContent = eye.blinkTimestamps.length;
+            blinkRateFill.style.width = `${Math.min(100, eye.blinkTimestamps.length * 4)}%`;
+            
+            focusScoreValueEl.textContent = eye.attentionScore;
+            focusScoreFill.style.width = `${eye.attentionScore}%`;
+            focusScoreFill.style.background = eye.attentionScore > 70 ? '#aa88ff' : eye.attentionScore > 50 ? '#ffaa00' : '#ff4444';
+            
+            const secs = Math.floor((performance.now() - eye.sessionStart) / 1000);
+            sessionTimeEl.textContent = `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
+            
+            // Eye visualizations - iris position
+            leftIrisEl.style.transform = `translate(calc(-50% + ${eye.leftGazeX * 10}px), calc(-50% + ${eye.leftGazeY * 5}px))`;
+            rightIrisEl.style.transform = `translate(calc(-50% + ${eye.rightGazeX * 10}px), calc(-50% + ${eye.rightGazeY * 5}px))`;
+            
+            // Eyelids
+            const lc = (1 - eye.leftOpenness) * 50, rc = (1 - eye.rightOpenness) * 50;
+            leftEyelidTop.style.height = `${lc}%`; leftEyelidBottom.style.height = `${lc}%`;
+            rightEyelidTop.style.height = `${rc}%`; rightEyelidBottom.style.height = `${rc}%`;
+            
+            // Openness bars
+            leftEyeOpenness.style.width = `${eye.leftOpenness * 100}%`;
+            rightEyeOpenness.style.width = `${eye.rightOpenness * 100}%`;
+            leftEyeOpenness.style.background = eye.leftState === 'OPEN' ? '#00ff88' : eye.leftState === 'PARTIAL' ? '#ffaa00' : '#ff4444';
+            rightEyeOpenness.style.background = eye.rightState === 'OPEN' ? '#00ff88' : eye.rightState === 'PARTIAL' ? '#ffaa00' : '#ff4444';
+            
+            // Eye state labels
+            updateEyeStateLabel(leftEyeStatus, eye.leftState);
+            updateEyeStateLabel(rightEyeStatus, eye.rightState);
+            
+            // Openness values
+            leftEyeValue.textContent = `${Math.round(eye.leftOpenness * 100)}%`;
+            rightEyeValue.textContent = `${Math.round(eye.rightOpenness * 100)}%`;
+            
+            // Closure duration stats
+            currentClosureDuration.textContent = `${(eye.currentClosureDuration / 1000).toFixed(1)}s`;
+            maxClosureDuration.textContent = `${(eye.maxClosureDuration / 1000).toFixed(1)}s`;
+            avgClosureDuration.textContent = `${(eye.avgClosureDuration / 1000).toFixed(2)}s`;
+            
+            // Update alerts
+            updateAlerts();
+        }
+        
+        function updateEyeStateLabel(element, state) {
+            element.textContent = state;
+            element.className = 'eye-status-label ' + state.toLowerCase();
+        }
+        
+        function updateAlerts() {
+            // Drowsiness alert
+            if (eye.isDrowsy) {
+                drowsinessAlert.classList.remove('hidden');
+                drowsinessTime.textContent = `${(eye.drowsinessDuration / 1000).toFixed(1)}s`;
+            } else {
+                drowsinessAlert.classList.add('hidden');
+            }
+            
+            // Asymmetry alert
+            if (eye.isAsymmetric) {
+                asymmetryAlert.classList.remove('hidden');
+                asymmetryValue.textContent = `${Math.round(eye.asymmetryValue * 100)}%`;
+            } else {
+                asymmetryAlert.classList.add('hidden');
+            }
+            
+            // Prolonged closure alert
+            if (eye.isProlongedClosure) {
+                prolongedClosureAlert.classList.remove('hidden');
+                prolongedClosureTime.textContent = `${(eye.currentClosureDuration / 1000).toFixed(1)}s`;
+            } else {
+                prolongedClosureAlert.classList.add('hidden');
+            }
+        }
+
+        function drawEyeGaze(landmarks) {
+            const li = landmarks[EYE.leftIris], ri = landmarks[EYE.rightIris];
+            if (!li || !ri) return;
+            
+            const midX = ((li.x + ri.x) / 2) * canvasElement.width;
+            const midY = ((li.y + ri.y) / 2) * canvasElement.height;
+            const endX = midX + eye.smoothX * 50;
+            const endY = midY + eye.smoothY * 30;
+            
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(midX, midY);
+            canvasCtx.lineTo(endX, endY);
+            canvasCtx.strokeStyle = eye.zone === 'CENTER' ? '#00ff88' : eye.zone === 'PERIPHERAL' ? '#ffaa00' : '#ff4444';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.stroke();
+            
+            canvasCtx.beginPath();
+            canvasCtx.arc(endX, endY, 6, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = canvasCtx.strokeStyle;
+            canvasCtx.fill();
+            
+            // Iris highlights
+            [li, ri].forEach(iris => {
+                const x = iris.x * canvasElement.width, y = iris.y * canvasElement.height;
+                canvasCtx.beginPath();
+                canvasCtx.arc(x, y, 4, 0, 2 * Math.PI);
+                canvasCtx.fillStyle = '#00d4ff';
+                canvasCtx.fill();
+            });
+            
+            // Draw eye state on canvas
+            const avgOpenness = (eye.leftOpenness + eye.rightOpenness) / 2;
+            let stateText = avgOpenness >= 0.7 ? 'EYES OPEN' : avgOpenness >= 0.2 ? 'EYES PARTIAL' : 'EYES CLOSED';
+            let stateColor = avgOpenness >= 0.7 ? '#00ff88' : avgOpenness >= 0.2 ? '#ffaa00' : '#ff4444';
+            
+            canvasCtx.font = 'bold 14px Arial';
+            canvasCtx.fillStyle = stateColor;
+            canvasCtx.fillText(stateText, midX - 40, midY - 40);
+            
+            // Draw alerts on canvas if active
+            if (eye.isDrowsy) {
+                canvasCtx.fillStyle = '#ff8800';
+                canvasCtx.fillText('⚠️ DROWSY', midX - 30, midY - 55);
+            }
+            if (eye.isAsymmetric) {
+                canvasCtx.fillStyle = '#ff44ff';
+                canvasCtx.fillText('⚠️ ASYMMETRY', midX - 40, midY - 70);
+            }
+        }
+
+        function drawTimeline() {
+            const w = timelineCanvas.width, h = timelineCanvas.height;
+            timelineCtx.fillStyle = '#050508';
+            timelineCtx.fillRect(0, 0, w, h);
+            
+            if (attentionTimeline.data.length < 2) return;
+            
+            timelineCtx.strokeStyle = '#151515';
+            for (let i = 1; i < 4; i++) {
+                timelineCtx.beginPath();
+                timelineCtx.moveTo(0, (h / 4) * i);
+                timelineCtx.lineTo(w, (h / 4) * i);
+                timelineCtx.stroke();
+            }
+            
+            timelineCtx.beginPath();
+            attentionTimeline.data.forEach((v, i) => {
+                const x = (i / attentionTimeline.maxLen) * w;
+                const y = h - (v / 100) * h;
+                if (i === 0) timelineCtx.moveTo(x, y);
+                else timelineCtx.lineTo(x, y);
+            });
+            
+            const curr = attentionTimeline.data[attentionTimeline.data.length - 1] || 100;
+            timelineCtx.strokeStyle = curr > 70 ? '#00ff88' : curr > 50 ? '#ffaa00' : '#ff4444';
+            timelineCtx.lineWidth = 2;
+            timelineCtx.stroke();
+        }
+
+        // Face processing
+        function processFace(results) {
+            if (!results.faceLandmarks?.length) return;
+            const landmarks = results.faceLandmarks[0];
+            
+            drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: '#ffffff10', lineWidth: 1 });
+            
+            processEyeTracking(landmarks, results.faceBlendshapes);
+            drawEyeGaze(landmarks);
+            processRPPG(landmarks);
+            if (results.faceBlendshapes?.length) processSentiment(results.faceBlendshapes[0].categories);
+            processHeadPose(landmarks);
+        }
+
+        // rPPG processing
+        function processRPPG(landmarks) {
+            const fh = extractROI(landmarks, ROI.forehead, '#ff444460');
+            const lc = extractROI(landmarks, ROI.leftCheek, '#44ff4460');
+            const rc = extractROI(landmarks, ROI.rightCheek, '#4444ff60');
+            if (!fh || !lc || !rc) return;
+            
+            const R = (fh.r + lc.r + rc.r) / 3;
+            const G = (fh.g + lc.g + rc.g) / 3;
+            const B = (fh.b + lc.b + rc.b) / 3;
+            const grgb = (G / R) + (G / B);
+            
+            rPPG.signal.push(grgb);
+            rPPG.timestamps.push(performance.now());
+            while (rPPG.signal.length > rPPG.bufferSize) { rPPG.signal.shift(); rPPG.timestamps.shift(); }
+            
+            roiForehead.textContent = fh.g.toFixed(0);
+            roiLeftCheek.textContent = lc.g.toFixed(0);
+            roiRightCheek.textContent = rc.g.toFixed(0);
+            
+            if (rPPG.signal.length >= rPPG.minSamples) { rPPG.calibrating = false; calculateHR(); }
+        }
+
+        function extractROI(landmarks, indices, color) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const idx of indices) {
+                const lm = landmarks[idx];
+                if (!lm) continue;
+                const x = lm.x * video.videoWidth, y = lm.y * video.videoHeight;
+                minX = Math.min(minX, x); minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            }
+            const p = 2;
+            minX = Math.max(0, minX - p); minY = Math.max(0, minY - p);
+            maxX = Math.min(video.videoWidth, maxX + p); maxY = Math.min(video.videoHeight, maxY + p);
+            const w = maxX - minX, h = maxY - minY;
+            if (w < 5 || h < 5) return null;
+            
+            canvasCtx.strokeStyle = color; canvasCtx.lineWidth = 1;
+            canvasCtx.strokeRect(minX, minY, w, h);
+            
+            try {
+                const tc = document.createElement('canvas');
+                tc.width = w; tc.height = h;
+                const tctx = tc.getContext('2d');
+                tctx.drawImage(video, minX, minY, w, h, 0, 0, w, h);
+                const data = tctx.getImageData(0, 0, w, h).data;
+                let r = 0, g = 0, b = 0, cnt = 0;
+                for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i+1]; b += data[i+2]; cnt++; }
+                return { r: r/cnt, g: g/cnt, b: b/cnt };
+            } catch { return null; }
+        }
+
+        function calculateHR() {
+            if (rPPG.signal.length < rPPG.minSamples) return;
+            const dur = (rPPG.timestamps[rPPG.timestamps.length-1] - rPPG.timestamps[0]) / 1000;
+            const sr = rPPG.timestamps.length / dur;
+            const n = rPPG.signal.length;
+            
+            let sx = 0, sy = 0, sxy = 0, sx2 = 0;
+            for (let i = 0; i < n; i++) { sx += i; sy += rPPG.signal[i]; sxy += i * rPPG.signal[i]; sx2 += i * i; }
+            const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+            const intercept = (sy - slope * sx) / n;
+            const detrended = rPPG.signal.map((v, i) => v - (slope * i + intercept));
+            
+            const mean = detrended.reduce((a, b) => a + b, 0) / n;
+            const std = Math.sqrt(detrended.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n);
+            const normalized = std > 0.001 ? detrended.map(v => (v - mean) / std) : detrended;
+            
+            rPPG.filtered = bandpass(normalized, sr, 0.65, 4.0);
+            const fft = computeFFT(rPPG.filtered);
+            const freqRes = sr / rPPG.filtered.length;
+            const minBin = Math.floor(0.65 / freqRes);
+            const maxBin = Math.min(Math.ceil(4.0 / freqRes), fft.length - 1);
+            
+            let maxPow = 0, peakBin = minBin;
+            for (let i = minBin; i <= maxBin; i++) { if (fft[i] > maxPow) { maxPow = fft[i]; peakBin = i; } }
+            
+            const newBPM = Math.round(peakBin * freqRes * 60);
+            rPPG.bpm = rPPG.bpm === 0 ? newBPM : Math.round(rPPG.bpm * 0.8 + newBPM * 0.2);
+            rPPG.bpm = Math.max(40, Math.min(180, rPPG.bpm));
+            
+            const avgPow = fft.slice(minBin, maxBin).reduce((a, b) => a + b, 0) / (maxBin - minBin + 1);
+            rPPG.quality = Math.min(100, Math.max(0, Math.round((maxPow / (avgPow + 0.001) - 1) * 15)));
+        }
+
+        function bandpass(sig, fs, lo, hi) {
+            const rcH = 1 / (2 * Math.PI * lo), dt = 1 / fs, aH = rcH / (rcH + dt);
+            let hp = [sig[0]];
+            for (let i = 1; i < sig.length; i++) hp.push(aH * (hp[i-1] + sig[i] - sig[i-1]));
+            const rcL = 1 / (2 * Math.PI * hi), aL = dt / (rcL + dt);
+            let lp = [hp[0]];
+            for (let i = 1; i < hp.length; i++) lp.push(lp[i-1] + aL * (hp[i] - lp[i-1]));
+            return lp;
+        }
+
+        function computeFFT(sig) {
+            const n = sig.length, mag = [];
+            for (let k = 0; k < n / 2; k++) {
+                let re = 0, im = 0;
+                for (let t = 0; t < n; t++) {
+                    const ang = (2 * Math.PI * k * t) / n;
+                    re += sig[t] * Math.cos(ang);
+                    im -= sig[t] * Math.sin(ang);
+                }
+                mag.push(Math.sqrt(re * re + im * im));
+            }
+            return mag;
+        }
+
+        // Sentiment
+        function processSentiment(shapes) {
+            const get = name => shapes.find(s => s.categoryName === name)?.score || 0;
+            const happy = (get('mouthSmileLeft') + get('mouthSmileRight')) / 2;
+            const sad = (get('mouthFrownLeft') + get('mouthFrownRight')) / 2 * 0.5 + get('browInnerUp') * 0.3;
+            const angry = (get('browDownLeft') + get('browDownRight')) / 2 * 0.7;
+            const surprise = (get('browOuterUpLeft') + get('browOuterUpRight') + get('eyeWideLeft') + get('eyeWideRight')) / 4 * 0.6 + get('jawOpen') * 0.4;
+            const neutral = Math.max(0, 1 - (happy + sad + angry + surprise) * 1.5);
+            
+            const s = sentiment.smoothing;
+            sentiment.happy = sentiment.happy * s + happy * (1 - s);
+            sentiment.sad = sentiment.sad * s + sad * (1 - s);
+            sentiment.angry = sentiment.angry * s + angry * (1 - s);
+            sentiment.surprise = sentiment.surprise * s + surprise * (1 - s);
+            sentiment.neutral = sentiment.neutral * s + neutral * (1 - s);
+            
+            ['happy', 'sad', 'angry', 'surprise', 'neutral'].forEach(name => {
+                const pct = Math.round(sentiment[name] * 100);
+                document.getElementById(name + 'Value').textContent = pct + '%';
+                document.getElementById(name + 'Bar').style.width = pct + '%';
+            });
+        }
+
+        // Head pose
+        function processHeadPose(landmarks) {
+            const nose = landmarks[1], le = landmarks[33], re = landmarks[263], chin = landmarks[152], fh = landmarks[10];
+            const ecx = (le.x + re.x) / 2, ecy = (le.y + re.y) / 2;
+            const faceH = chin.y - fh.y;
+            
+            const yaw = (nose.x - ecx) * 150;
+            const pitch = ((nose.y - ecy) / faceH - 0.3) * 100;
+            const roll = Math.atan2(re.y - le.y, re.x - le.x) * 180 / Math.PI;
+            
+            headPose.yaw = headPose.yaw * 0.7 + yaw * 0.3;
+            headPose.pitch = headPose.pitch * 0.7 + pitch * 0.3;
+            headPose.roll = headPose.roll * 0.7 + roll * 0.3;
+            
+            yawValue.textContent = Math.round(headPose.yaw) + '°';
+            pitchValue.textContent = Math.round(headPose.pitch) + '°';
+            rollValue.textContent = Math.round(headPose.roll) + '°';
+            
+            const dx = 50 + headPose.yaw * 0.8, dy = 50 + headPose.pitch * 0.8;
+            poseDot.style.left = Math.max(10, Math.min(90, dx)) + '%';
+            poseDot.style.top = Math.max(10, Math.min(90, dy)) + '%';
+        }
+
+        // Hand processing
+        function processHands(results) {
+            hands.left.detected = hands.right.detected = false;
+            if (!results.landmarks?.length) { updateHandUI('left'); updateHandUI('right'); return; }
+            
+            for (let i = 0; i < results.landmarks.length; i++) {
+                const lm = results.landmarks[i];
+                const hd = results.handednesses[i][0];
+                const isLeft = hd.categoryName === 'Right';
+                const hand = isLeft ? hands.left : hands.right;
+                hand.detected = true;
+                
+                drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { color: isLeft ? '#00FFFF' : '#FF00FF', lineWidth: 3 });
+                drawingUtils.drawLandmarks(lm, { color: isLeft ? '#00FF00' : '#FF0000', lineWidth: 1, radius: 3 });
+                
+                const { gesture, debug } = detectGesture(lm);
+                hand.gesture = gesture;
+                hand.debug = debug;
+                hand.x = lm[0].x;
+                hand.y = lm[0].y;
+                
+                const tt = lm[HL.THUMB_TIP], it = lm[HL.INDEX_TIP];
+                const ix = ((tt.x + it.x) / 2) * canvasElement.width;
+                const iy = ((tt.y + it.y) / 2) * canvasElement.height;
+                
+                canvasCtx.beginPath();
+                canvasCtx.arc(ix, iy, gesture === 'pinch' ? 20 : gesture === 'closed' ? 15 : 8, 0, 2 * Math.PI);
+                canvasCtx.fillStyle = gesture === 'pinch' ? '#00FF00' : gesture === 'closed' ? '#FF8800' : 'rgba(255,255,255,0.3)';
+                canvasCtx.fill();
+                
+                if (gesture !== 'open') {
+                    canvasCtx.font = 'bold 14px Arial';
+                    canvasCtx.fillStyle = gesture === 'pinch' ? '#00FF00' : '#FF8800';
+                    canvasCtx.fillText(gesture.toUpperCase(), ix - 22, iy - 25);
+                }
+            }
+            updateHandUI('left');
+            updateHandUI('right');
+        }
+
+        function detectGesture(lm) {
+            const tt = lm[HL.THUMB_TIP], it = lm[HL.INDEX_TIP];
+            const pd = Math.sqrt(Math.pow(tt.x - it.x, 2) + Math.pow(tt.y - it.y, 2) + Math.pow(tt.z - it.z, 2));
+            
+            const fingerExt = (tip, pip, mcp) => {
+                const t = lm[tip], p = lm[pip], m = lm[mcp];
+                const tm = Math.sqrt(Math.pow(t.x-m.x,2)+Math.pow(t.y-m.y,2)+Math.pow(t.z-m.z,2));
+                const pm = Math.sqrt(Math.pow(p.x-m.x,2)+Math.pow(p.y-m.y,2)+Math.pow(p.z-m.z,2));
+                const ratio = tm / (pm + 0.001);
+                return { ext: ratio > 1.0, ratio };
+            };
+            
+            const idx = fingerExt(HL.INDEX_TIP, HL.INDEX_PIP, HL.INDEX_MCP);
+            const mid = fingerExt(HL.MIDDLE_TIP, HL.MIDDLE_PIP, HL.MIDDLE_MCP);
+            const ring = fingerExt(HL.RING_TIP, HL.RING_PIP, HL.RING_MCP);
+            const pinky = fingerExt(HL.PINKY_TIP, HL.PINKY_PIP, HL.PINKY_MCP);
+            const extCount = [idx.ext, mid.ext, ring.ext, pinky.ext].filter(x => x).length;
+            
+            const debug = { pinchDist: pd.toFixed(3), index: idx.ratio.toFixed(2), middle: mid.ratio.toFixed(2), fingerCount: extCount };
+            
+            let gesture = 'open';
+            if (pd < 0.09 && idx.ratio > 0.9) gesture = 'pinch';
+            else if (idx.ratio < 0.95 && extCount <= 1) gesture = 'closed';
+            
+            return { gesture, debug };
+        }
+
+        function updateHandUI(side) {
+            const hand = hands[side];
+            const card = document.getElementById(side + 'HandCard');
+            const status = document.getElementById(side + 'HandStatus');
+            const pos = document.getElementById(side + 'HandPos');
+            const dbg = document.getElementById(side + 'HandDebug');
+            
+            if (hand.detected) {
+                card.classList.remove('inactive');
+                status.textContent = hand.gesture.charAt(0).toUpperCase() + hand.gesture.slice(1);
+                status.className = 'hand-status ' + (hand.gesture === 'pinch' ? 'pinch-yes' : hand.gesture === 'closed' ? 'hand-closed' : 'pinch-no');
+                pos.textContent = `(${(hand.x * 100).toFixed(0)}%, ${(hand.y * 100).toFixed(0)}%)`;
+                if (hand.debug) dbg.innerHTML = `pinch:${hand.debug.pinchDist} idx:${hand.debug.index}<br>mid:${hand.debug.middle} cnt:${hand.debug.fingerCount}`;
+            } else {
+                card.classList.add('inactive');
+                status.textContent = '--';
+                status.className = 'hand-status pinch-no';
+                pos.textContent = 'Not detected';
+                dbg.innerHTML = '';
+            }
+        }
+
+        // PPG waveform
+        function drawPPGWaveform() {
+            const w = ppgCanvas.width, h = ppgCanvas.height;
+            ppgCtx.fillStyle = '#050508';
+            ppgCtx.fillRect(0, 0, w, h);
+            
+            ppgCtx.strokeStyle = '#151515';
+            for (let i = 1; i < 4; i++) { ppgCtx.beginPath(); ppgCtx.moveTo(0, (h/4)*i); ppgCtx.lineTo(w, (h/4)*i); ppgCtx.stroke(); }
+            
+            const sig = rPPG.filtered.length > 10 ? rPPG.filtered : rPPG.signal;
+            if (sig.length < 2) return;
+            
+            ppgCtx.strokeStyle = rPPG.calibrating ? '#444' : '#ff4444';
+            ppgCtx.lineWidth = 1.5;
+            ppgCtx.beginPath();
+            
+            const samples = sig.slice(-w);
+            const max = Math.max(...samples.map(Math.abs)) || 1;
+            const scale = (h * 0.4) / max;
+            
+            samples.forEach((v, i) => {
+                const x = (i / samples.length) * w;
+                const y = h / 2 - v * scale;
+                if (i === 0) ppgCtx.moveTo(x, y);
+                else ppgCtx.lineTo(x, y);
+            });
+            ppgCtx.stroke();
+        }
+
+        function updateDisplays() {
+            if (rPPG.calibrating) {
+                bpmValue.textContent = '--';
+                const pct = Math.round(rPPG.signal.length / rPPG.minSamples * 100);
+                qualityText.textContent = `${Math.min(100, pct)}%`;
+                qualityFill.style.width = Math.min(100, pct) + '%';
+                qualityFill.className = 'quality-fill quality-poor';
+                heartIcon.classList.remove('heart-beating');
+            } else {
+                bpmValue.textContent = rPPG.bpm;
+                qualityFill.style.width = rPPG.quality + '%';
+                qualityFill.className = 'quality-fill ' + (rPPG.quality > 60 ? 'quality-good' : rPPG.quality > 30 ? 'quality-fair' : 'quality-poor');
+                qualityText.textContent = rPPG.quality > 60 ? 'Good' : rPPG.quality > 30 ? 'Fair' : 'Poor';
+                heartIcon.classList.add('heart-beating');
+                heartIcon.style.animationDuration = (60 / rPPG.bpm) + 's';
+            }
+        }
+
+        // Start
+        webcamButton.addEventListener('click', enableCam);
+        init().catch(err => { console.error(err); loading.textContent = 'Error: ' + err.message; });
+    </script>
+</body>
+</html>
