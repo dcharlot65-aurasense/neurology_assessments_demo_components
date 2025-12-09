@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFocus - Cognitive Assessment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #141414;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #2a2a2a;
+            --accent-red: #e50914;
+            --accent-gold: #f5c518;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666666;
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* ============================================
+           HEADER - Fixed at top
+           ============================================ */
+        .header {
+            flex-shrink: 0;
+            height: 50px;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 1000;
+            border-bottom: 1px solid #222;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent-red);
+            letter-spacing: -1px;
+        }
+        
+        .logo span {
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+        
+        .header-nav {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+        }
+        
+        .header-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .header-nav a:hover, .header-nav a.active {
+            color: var(--text-primary);
+        }
+        
+        .profile-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #e50914, #b20710);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        /* ============================================
+           MAIN LAYOUT - Split view
+           ============================================ */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* ============================================
+           TOP SECTION - Featured + Task (Fixed height)
+           ============================================ */
+        .top-section {
+            flex-shrink: 0;
+            display: flex;
+            height: 180px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            position: relative;
+        }
+        
+        .featured-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.2;
+            transition: background 0.5s;
+        }
+        
+        .featured-content {
+            flex: 1;
+            padding: 25px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .featured-tag {
+            display: inline-block;
+            background: var(--accent-red);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            width: fit-content;
+        }
+        
+        .featured-title {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+        }
+        
+        .featured-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .featured-rating {
+            color: var(--accent-gold);
+            font-weight: bold;
+        }
+        
+        /* ============================================
+           TASK PROMPT - Right side of top section
+           ============================================ */
+        .task-prompt {
+            flex-shrink: 0;
+            width: 300px;
+            background: rgba(0,0,0,0.7);
+            border-left: 3px solid var(--accent-red);
+            padding: 20px 25px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .task-prompt h3 {
+            color: var(--accent-red);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .task-target {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .task-target .emoji {
+            font-size: 28px;
+        }
+        
+        .task-timer {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 32px;
+            color: var(--accent-gold);
+            font-weight: bold;
+        }
+        
+        .task-timer.warning {
+            color: #ff6b6b;
+            animation: timerPulse 0.5s ease infinite;
+        }
+        
+        @keyframes timerPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .task-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+            font-size: 12px;
+        }
+        
+        .task-stat {
+            text-align: center;
+        }
+        
+        .task-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        
+        .task-stat-label {
+            color: var(--text-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        
+        .game-timer-container {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        
+        .game-timer-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        
+        .game-timer {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 42px;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        
+        .game-timer.warning {
+            color: #ff6b6b;
+            animation: timerPulse 0.5s ease infinite;
+        }
+        
+        .game-timer.critical {
+            color: #ff4757;
+            animation: timerPulse 0.25s ease infinite;
+        }
+        
+        /* ============================================
+           CONTENT AREA - Scrollable rows
+           ============================================ */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px 0 60px 0;
+            background: var(--bg-primary);
+        }
+        
+        .content-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .content-area::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        .content-area::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+        
+        .content-row {
+            padding: 10px 40px 20px;
+            position: relative;
+        }
+        
+        .row-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .row-title .shuffle-indicator {
+            font-size: 13px;
+            color: var(--accent-gold);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .row-title .shuffle-indicator.active {
+            opacity: 1;
+        }
+        
+        .tiles-container {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            scroll-behavior: smooth;
+        }
+        
+        .tiles-container::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* ============================================
+           CONTENT TILES
+           ============================================ */
+        .tile {
+            flex-shrink: 0;
+            width: 160px;
+            height: 220px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border: 3px solid transparent;
+        }
+        
+        .tile:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        
+        .tile.focused {
+            transform: scale(1.1);
+            border-color: #fff;
+            z-index: 20;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+        
+        .tile.correct {
+            border-color: #4ecdc4;
+            animation: correctPulse 0.4s ease;
+        }
+        
+        @keyframes correctPulse {
+            0% { transform: scale(1.1); }
+            50% { transform: scale(1.18); }
+            100% { transform: scale(1.1); }
+        }
+        
+        .tile.shuffling {
+            opacity: 0.6;
+            transform: scale(0.95);
+        }
+        
+        /* Wiggle animations for distraction */
+        .tile.wiggle-1 {
+            animation: wiggle1 0.4s ease-in-out;
+        }
+        
+        .tile.wiggle-2 {
+            animation: wiggle2 0.5s ease-in-out;
+        }
+        
+        .tile.wiggle-3 {
+            animation: wiggle3 0.3s ease-in-out;
+        }
+        
+        .tile.wiggle-4 {
+            animation: wiggle4 0.6s ease-in-out;
+        }
+        
+        @keyframes wiggle1 {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-3deg) translateX(-2px); }
+            75% { transform: rotate(3deg) translateX(2px); }
+        }
+        
+        @keyframes wiggle2 {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        
+        @keyframes wiggle3 {
+            0%, 100% { transform: translateY(0); }
+            25% { transform: translateY(-4px); }
+            75% { transform: translateY(4px); }
+        }
+        
+        @keyframes wiggle4 {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(2deg) scale(1.03); }
+            50% { transform: rotate(-2deg) scale(0.97); }
+            75% { transform: rotate(1deg) scale(1.02); }
+        }
+        
+        .tile.focused.wiggle-1,
+        .tile.focused.wiggle-2,
+        .tile.focused.wiggle-3,
+        .tile.focused.wiggle-4 {
+            animation: none;
+            transform: scale(1.1);
+        }
+        
+        .tile-poster {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 56px;
+            position: relative;
+        }
+        
+        .tile-poster::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, var(--bg-card));
+        }
+        
+        .tile-info {
+            padding: 10px;
+        }
+        
+        .tile-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .tile-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tile-rating {
+            color: var(--accent-gold);
+        }
+        
+        /* ============================================
+           POSITION INDICATOR - In header
+           ============================================ */
+        .position-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .position-indicator .row-dots {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .position-indicator .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #555;
+            transition: all 0.2s;
+        }
+        
+        .position-indicator .dot.active {
+            background: var(--accent-red);
+            transform: scale(1.3);
+        }
+        
+        .control-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        
+        .control-hint kbd {
+            background: rgba(255,255,255,0.15);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: inherit;
+        }
+        
+        /* ============================================
+           START SCREEN OVERLAY
+           ============================================ */
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: opacity 0.4s;
+        }
+        
+        .start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .start-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px 50px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 480px;
+            width: 90%;
+            border: 1px solid #333;
+        }
+        
+        .start-logo {
+            font-size: 42px;
+            font-weight: bold;
+            color: var(--accent-red);
+            margin-bottom: 8px;
+        }
+        
+        .start-logo span {
+            color: white;
+            font-weight: 400;
+        }
+        
+        .start-tagline {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .difficulty-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .difficulty-option {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        
+        .difficulty-option:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .difficulty-option.focused {
+            border-color: var(--accent-red);
+            background: rgba(229, 9, 20, 0.15);
+        }
+        
+        .difficulty-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .difficulty-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .btn {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn.focused {
+            outline: 3px solid #fff;
+            outline-offset: 3px;
+        }
+        
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #333;
+            color: white;
+        }
+        
+        /* ============================================
+           RESULTS OVERLAY
+           ============================================ */
+        .results-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        
+        .results-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .results-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 550px;
+            width: 90%;
+            border: 1px solid #333;
+        }
+        
+        .results-icon {
+            font-size: 56px;
+            margin-bottom: 15px;
+        }
+        
+        .results-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .results-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .final-score {
+            background: rgba(245, 197, 24, 0.15);
+            border: 2px solid var(--accent-gold);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .final-score-value {
+            font-size: 72px;
+            font-weight: bold;
+            color: var(--accent-gold);
+            line-height: 1;
+        }
+        
+        .final-score-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 8px;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .result-item {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .result-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        
+        .result-value.good {
+            color: #4ecdc4;
+        }
+        
+        .result-value.warning {
+            color: #ff6b6b;
+        }
+        
+        .result-label {
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        
+        .results-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        /* ============================================
+           TOAST
+           ============================================ */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255,255,255,0.95);
+            color: #141414;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 3000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .toast.success {
+            background: #4ecdc4;
+            color: #000;
+        }
+        
+        .toast.error {
+            background: #ff6b6b;
+            color: #fff;
+        }
+        
+        /* ============================================
+           SHUFFLE FLASH
+           ============================================ */
+        .shuffle-flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(229, 9, 20, 0.1);
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        
+        .shuffle-flash.active {
+            opacity: 1;
+        }
+        
+        /* ============================================
+           DEMO MODE
+           ============================================ */
+        .demo-option {
+            border-color: #9b59b6 !important;
+            background: rgba(155, 89, 182, 0.1) !important;
+        }
+        
+        .demo-option.focused {
+            border-color: #9b59b6 !important;
+            background: rgba(155, 89, 182, 0.25) !important;
+        }
+        
+        .demo-indicator {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1500;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(155, 89, 182, 0.4);
+        }
+        
+        .demo-indicator.show {
+            display: flex;
+        }
+        
+        .demo-indicator .pulse {
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            animation: demoPulse 1s ease infinite;
+        }
+        
+        @keyframes demoPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        
+        .demo-indicator .stop-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .demo-indicator .stop-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">Stream<span>Focus</span></div>
+        
+        <!-- Position Indicator - now in header -->
+        <div class="position-indicator">
+            <span>Row <span id="current-row">1</span>/<span id="total-rows">4</span></span>
+            <div class="row-dots" id="row-dots"></div>
+            <div class="control-hint">
+                <kbd>▲▼◄►</kbd><kbd>⏎</kbd>
+            </div>
+        </div>
+        
+        <div class="profile-icon">U</div>
+    </header>
+    
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Top Section: Featured + Task (Always visible) -->
+        <div class="top-section">
+            <div class="featured-background" id="featured-bg"></div>
+            <div class="featured-content">
+                <div class="featured-tag">Now Focused</div>
+                <h1 class="featured-title" id="featured-title">Select a Show</h1>
+                <div class="featured-meta">
+                    <span class="featured-rating" id="featured-rating">★ 8.5</span>
+                    <span id="featured-year">2024</span>
+                    <span id="featured-genre">Drama</span>
+                </div>
+            </div>
+            
+            <!-- Task Prompt -->
+            <div class="task-prompt">
+                <h3>🎯 Find This Show</h3>
+                <div class="task-target" id="task-target">
+                    <span class="emoji">🎬</span>
+                    <span class="name">Loading...</span>
+                </div>
+                <div class="game-timer-container">
+                    <div class="game-timer-label">Time Left</div>
+                    <div class="game-timer" id="game-timer">60</div>
+                </div>
+                <div class="task-stats">
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="stat-found">0</div>
+                        <div class="task-stat-label">Found</div>
+                    </div>
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="stat-streak">0</div>
+                        <div class="task-stat-label">Streak</div>
+                    </div>
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="stat-avg">-</div>
+                        <div class="task-stat-label">Avg</div>
+                    </div>
+                </div>
+            </div>
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="stat-avg">-</div>
+                        <div class="task-stat-label">Avg</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Area (Scrollable) -->
+        <main class="content-area" id="content-area">
+            <!-- Rows generated by JavaScript -->
+        </main>
+    </div>
+    
+    <!-- Start Screen -->
+    <div class="start-overlay" id="start-overlay">
+        <div class="start-card">
+            <div class="start-logo">Stream<span>Focus</span></div>
+            <p class="start-tagline">Cognitive Assessment Game</p>
+            
+            <div class="difficulty-selector" id="difficulty-selector">
+                <div class="difficulty-option focused" data-difficulty="easy">
+                    <div class="difficulty-name">🟢 Easy Mode</div>
+                    <div class="difficulty-desc">Tiles shuffle within rows. Good for practice.</div>
+                </div>
+                <div class="difficulty-option" data-difficulty="medium">
+                    <div class="difficulty-name">🟡 Medium Mode</div>
+                    <div class="difficulty-desc">Rows swap positions. Tests spatial memory.</div>
+                </div>
+                <div class="difficulty-option" data-difficulty="hard">
+                    <div class="difficulty-name">🔴 Hard Mode</div>
+                    <div class="difficulty-desc">Full shuffle - maximum challenge!</div>
+                </div>
+                <div class="difficulty-option demo-option" data-difficulty="demo">
+                    <div class="difficulty-name">🤖 Demo Mode</div>
+                    <div class="difficulty-desc">Watch an AI player demonstrate the game automatically.</div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="btn-start">Start Assessment</button>
+        </div>
+    </div>
+    
+    <!-- Results Overlay -->
+    <div class="results-overlay" id="results-overlay">
+        <div class="results-card">
+            <div class="results-icon">🏆</div>
+            <h2 class="results-title">Time's Up!</h2>
+            <p class="results-subtitle" id="results-subtitle">Great effort! Here's your score</p>
+            
+            <div class="final-score">
+                <div class="final-score-value" id="final-score">0</div>
+                <div class="final-score-label">Shows Found</div>
+            </div>
+            
+            <div class="results-grid">
+                <div class="result-item">
+                    <div class="result-value" id="result-avg">0s</div>
+                    <div class="result-label">Avg Time</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="result-best">0s</div>
+                    <div class="result-label">Best Time</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="result-streak">0</div>
+                    <div class="result-label">Best Streak</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="result-moves">0</div>
+                    <div class="result-label">Total Moves</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="result-accuracy">0%</div>
+                    <div class="result-label">Accuracy</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="result-errors">0</div>
+                    <div class="result-label">Errors</div>
+                </div>
+            </div>
+            
+            <div class="results-buttons">
+                <button class="btn btn-primary focused" id="btn-retry">Play Again</button>
+                <button class="btn btn-secondary" id="btn-menu">Main Menu</button>
+                <button class="btn btn-secondary" id="btn-export">Export</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+    
+    <!-- Demo Mode Indicator -->
+    <div class="demo-indicator" id="demo-indicator">
+        <span class="pulse"></span>
+        <span>Demo Mode - AI Playing</span>
+        <button class="stop-btn" id="btn-stop-demo">Stop Demo</button>
+    </div>
+    
+    <!-- Shuffle Flash -->
+    <div class="shuffle-flash" id="shuffle-flash"></div>
+    
+    <script>
+        // ================================================================
+        // CONTENT DATA
+        // ================================================================
+        const SHOWS = [
+            { id: 1, title: "Breaking News", emoji: "📰", genre: "News", year: 2024, rating: 8.2, color: "#3498db" },
+            { id: 2, title: "Mystery Manor", emoji: "🔍", genre: "Mystery", year: 2023, rating: 8.9, color: "#2c3e50" },
+            { id: 3, title: "Space Odyssey", emoji: "🚀", genre: "Sci-Fi", year: 2024, rating: 9.1, color: "#00cec9" },
+            { id: 4, title: "Comedy Hour", emoji: "😂", genre: "Comedy", year: 2023, rating: 7.8, color: "#fdcb6e" },
+            { id: 5, title: "Drama Queens", emoji: "🎭", genre: "Drama", year: 2024, rating: 8.5, color: "#6c5ce7" },
+            { id: 6, title: "Action Force", emoji: "💥", genre: "Action", year: 2023, rating: 8.3, color: "#e17055" },
+            { id: 7, title: "Love Stories", emoji: "💕", genre: "Romance", year: 2024, rating: 7.9, color: "#fd79a8" },
+            { id: 8, title: "Wild Nature", emoji: "🦁", genre: "Documentary", year: 2023, rating: 9.0, color: "#00b894" },
+            { id: 9, title: "Horror Night", emoji: "👻", genre: "Horror", year: 2024, rating: 7.5, color: "#2d3436" },
+            { id: 10, title: "Music Live", emoji: "🎵", genre: "Music", year: 2023, rating: 8.7, color: "#e84393" },
+            { id: 11, title: "Sports Zone", emoji: "⚽", genre: "Sports", year: 2024, rating: 8.1, color: "#0984e3" },
+            { id: 12, title: "Chef's Table", emoji: "👨‍🍳", genre: "Food", year: 2023, rating: 8.8, color: "#e67e22" },
+            { id: 13, title: "Travel World", emoji: "✈️", genre: "Travel", year: 2024, rating: 8.4, color: "#1abc9c" },
+            { id: 14, title: "Game Masters", emoji: "🎮", genre: "Gaming", year: 2023, rating: 8.6, color: "#9b59b6" },
+            { id: 15, title: "Crime Files", emoji: "🕵️", genre: "Crime", year: 2024, rating: 8.9, color: "#34495e" },
+            { id: 16, title: "Family Fun", emoji: "👨‍👩‍👧‍👦", genre: "Family", year: 2023, rating: 7.7, color: "#f39c12" },
+            { id: 17, title: "History Now", emoji: "🏛️", genre: "History", year: 2024, rating: 8.3, color: "#795548" },
+            { id: 18, title: "Anime World", emoji: "🎌", genre: "Anime", year: 2023, rating: 9.2, color: "#e91e63" },
+            { id: 19, title: "Tech Today", emoji: "💻", genre: "Tech", year: 2024, rating: 8.0, color: "#607d8b" },
+            { id: 20, title: "Art House", emoji: "🎨", genre: "Art", year: 2023, rating: 8.4, color: "#ff7675" },
+        ];
+        
+        const ROW_CATEGORIES = [
+            "Continue Watching",
+            "Trending Now", 
+            "New Releases",
+            "Popular on StreamFocus"
+        ];
+        
+        // ================================================================
+        // GAME STATE
+        // ================================================================
+        let state = {
+            difficulty: 'easy',
+            focusRow: 0,
+            focusCol: 0,
+            grid: [],
+            targetShow: null,
+            roundStartTime: 0,
+            gameStartTime: 0,
+            gameTimerInterval: null,
+            wiggleInterval: null,
+            
+            // Basic metrics
+            found: 0,
+            totalMoves: 0,
+            errors: 0,
+            streak: 0,
+            bestStreak: 0,
+            reactionTimes: [],
+            movesPerRound: [],
+            roundMoves: 0,
+            events: [],
+            
+            // Advanced cognitive metrics
+            firstMoveLatencies: [],      // Time from target shown to first move (processing speed)
+            pathEfficiencies: [],        // Optimal moves vs actual moves (planning ability)
+            directionChanges: [],        // Direction reversals per round (decision stability)
+            postShuffleRecovery: [],     // Time to first move after shuffle (cognitive flexibility)
+            distractorClicks: 0,         // Clicks on wiggling tiles (inhibitory control)
+            rowSwitches: 0,              // Total row changes (visual scanning pattern)
+            hesitations: [],             // Pauses > 1 second between moves (uncertainty)
+            earlyGameRT: [],             // First 20 seconds reaction times
+            lateGameRT: [],              // Last 20 seconds reaction times (fatigue)
+            lastMoveTime: 0,             // For calculating hesitations
+            lastDirection: null,         // For tracking direction changes
+            roundDirectionChanges: 0,    // Current round direction changes
+            isPostShuffle: false,        // Flag for post-shuffle timing
+            shuffleTime: 0,              // When last shuffle occurred
+            wiggleClickCount: 0,         // Clicks during wiggle animations
+            
+            gameActive: false,
+            demoMode: false,
+            demoInterval: null,
+            overlayFocus: 0,
+            startFocus: 0,
+        };
+        
+        const GAME_DURATION = 60; // seconds
+        
+        // ================================================================
+        // INITIALIZATION
+        // ================================================================
+        function init() {
+            buildGrid();
+            setupEventListeners();
+            updateRowDots();
+            console.log('🎬 StreamFocus v2 loaded');
+        }
+        
+        function buildGrid() {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = '';
+            
+            state.grid = [];
+            const shuffledShows = [...SHOWS].sort(() => Math.random() - 0.5);
+            
+            for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+                const rowShows = shuffledShows.slice(rowIndex * 5, (rowIndex + 1) * 5);
+                state.grid.push(rowShows);
+                
+                const row = document.createElement('section');
+                row.className = 'content-row';
+                row.dataset.row = rowIndex;
+                
+                row.innerHTML = `
+                    <h2 class="row-title">
+                        ${ROW_CATEGORIES[rowIndex]}
+                        <span class="shuffle-indicator">🔀 Shuffling...</span>
+                    </h2>
+                    <div class="tiles-container" id="tiles-row-${rowIndex}"></div>
+                `;
+                
+                contentArea.appendChild(row);
+                renderRowTiles(rowIndex);
+            }
+            
+            document.getElementById('total-rows').textContent = state.grid.length;
+        }
+        
+        function renderRowTiles(rowIndex) {
+            const container = document.getElementById(`tiles-row-${rowIndex}`);
+            container.innerHTML = '';
+            
+            state.grid[rowIndex].forEach((show, colIndex) => {
+                const tile = createTile(show, rowIndex, colIndex);
+                container.appendChild(tile);
+            });
+        }
+        
+        function createTile(show, rowIndex, colIndex) {
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.dataset.row = rowIndex;
+            tile.dataset.col = colIndex;
+            tile.dataset.showId = show.id;
+            
+            tile.innerHTML = `
+                <div class="tile-poster" style="background: linear-gradient(135deg, ${show.color}88, ${show.color}44)">
+                    ${show.emoji}
+                </div>
+                <div class="tile-info">
+                    <div class="tile-title">${show.title}</div>
+                    <div class="tile-meta">
+                        <span class="tile-rating">★ ${show.rating}</span>
+                        <span>${show.year}</span>
+                    </div>
+                </div>
+            `;
+            
+            tile.addEventListener('click', () => handleTileClick(rowIndex, colIndex));
+            return tile;
+        }
+        
+        function updateRowDots() {
+            const dotsContainer = document.getElementById('row-dots');
+            dotsContainer.innerHTML = '';
+            
+            for (let i = 0; i < state.grid.length; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot' + (i === state.focusRow ? ' active' : '');
+                dotsContainer.appendChild(dot);
+            }
+            
+            document.getElementById('current-row').textContent = state.focusRow + 1;
+        }
+        
+        // ================================================================
+        // GAME LOGIC
+        // ================================================================
+        function startGame() {
+            state.gameActive = true;
+            
+            // Reset basic metrics
+            state.found = 0;
+            state.totalMoves = 0;
+            state.errors = 0;
+            state.streak = 0;
+            state.bestStreak = 0;
+            state.reactionTimes = [];
+            state.movesPerRound = [];
+            state.roundMoves = 0;
+            state.events = [];
+            
+            // Reset advanced cognitive metrics
+            state.firstMoveLatencies = [];
+            state.pathEfficiencies = [];
+            state.directionChanges = [];
+            state.postShuffleRecovery = [];
+            state.distractorClicks = 0;
+            state.rowSwitches = 0;
+            state.hesitations = [];
+            state.earlyGameRT = [];
+            state.lateGameRT = [];
+            state.lastMoveTime = 0;
+            state.lastDirection = null;
+            state.roundDirectionChanges = 0;
+            state.isPostShuffle = false;
+            state.shuffleTime = 0;
+            state.wiggleClickCount = 0;
+            
+            // Reset position
+            state.focusRow = 0;
+            state.focusCol = 0;
+            state.gameStartTime = performance.now();
+            
+            document.getElementById('start-overlay').classList.add('hidden');
+            
+            buildGrid();
+            updateFocus();
+            updateRowDots();
+            startGameTimer();
+            startWiggleDistraction();
+            startNewRound();
+            
+            logEvent('game_start', { difficulty: state.difficulty });
+        }
+        
+        function startGameTimer() {
+            // Clear any existing timer
+            if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
+            
+            // Update timer display every 100ms
+            state.gameTimerInterval = setInterval(() => {
+                const elapsed = (performance.now() - state.gameStartTime) / 1000;
+                const remaining = Math.max(0, GAME_DURATION - elapsed);
+                const timerEl = document.getElementById('game-timer');
+                
+                timerEl.textContent = Math.ceil(remaining);
+                
+                // Warning at 10 seconds
+                if (remaining <= 10 && remaining > 5) {
+                    timerEl.classList.add('warning');
+                    timerEl.classList.remove('critical');
+                } else if (remaining <= 5) {
+                    timerEl.classList.remove('warning');
+                    timerEl.classList.add('critical');
+                } else {
+                    timerEl.classList.remove('warning', 'critical');
+                }
+                
+                // End game when time runs out
+                if (remaining <= 0) {
+                    endGame();
+                }
+            }, 100);
+        }
+        
+        function startWiggleDistraction() {
+            // Clear any existing wiggle interval
+            if (state.wiggleInterval) clearInterval(state.wiggleInterval);
+            
+            // Randomly wiggle tiles every 1-3 seconds
+            state.wiggleInterval = setInterval(() => {
+                if (!state.gameActive) return;
+                
+                // Get all tiles that aren't focused
+                const tiles = document.querySelectorAll('.tile:not(.focused)');
+                if (tiles.length === 0) return;
+                
+                // Pick 1-3 random tiles to wiggle
+                const numToWiggle = Math.floor(Math.random() * 3) + 1;
+                const indices = [];
+                while (indices.length < numToWiggle && indices.length < tiles.length) {
+                    const idx = Math.floor(Math.random() * tiles.length);
+                    if (!indices.includes(idx)) indices.push(idx);
+                }
+                
+                // Apply random wiggle animation
+                indices.forEach(idx => {
+                    const tile = tiles[idx];
+                    const wiggleType = Math.floor(Math.random() * 4) + 1;
+                    
+                    // Remove any existing wiggle class
+                    tile.classList.remove('wiggle-1', 'wiggle-2', 'wiggle-3', 'wiggle-4');
+                    
+                    // Force reflow to restart animation
+                    void tile.offsetWidth;
+                    
+                    // Add new wiggle class
+                    tile.classList.add(`wiggle-${wiggleType}`);
+                    tile.dataset.wiggling = 'true';
+                    
+                    // Remove class after animation completes
+                    setTimeout(() => {
+                        tile.classList.remove(`wiggle-${wiggleType}`);
+                        tile.dataset.wiggling = 'false';
+                    }, 600);
+                });
+                
+                logEvent('wiggle', { count: numToWiggle });
+            }, 1500 + Math.random() * 1500); // Random interval 1.5-3 seconds
+        }
+        
+        function stopWiggleDistraction() {
+            if (state.wiggleInterval) {
+                clearInterval(state.wiggleInterval);
+                state.wiggleInterval = null;
+            }
+            // Remove all wiggle classes
+            document.querySelectorAll('.tile').forEach(t => {
+                t.classList.remove('wiggle-1', 'wiggle-2', 'wiggle-3', 'wiggle-4');
+                t.dataset.wiggling = 'false';
+            });
+        }
+        
+        function startNewRound() {
+            const allShows = state.grid.flat();
+            state.targetShow = allShows[Math.floor(Math.random() * allShows.length)];
+            
+            document.getElementById('task-target').innerHTML = `
+                <span class="emoji">${state.targetShow.emoji}</span>
+                <span class="name">${state.targetShow.title}</span>
+            `;
+            document.getElementById('stat-found').textContent = state.found;
+            document.getElementById('stat-streak').textContent = state.streak;
+            
+            document.querySelectorAll('.tile.target').forEach(t => t.classList.remove('target'));
+            
+            // Reset round-specific metrics
+            state.roundStartTime = performance.now();
+            state.roundMoves = 0;
+            state.roundDirectionChanges = 0;
+            state.lastDirection = null;
+            state.lastMoveTime = performance.now();
+            
+            // Calculate optimal path (Manhattan distance)
+            const targetPos = findShowPosition(state.targetShow.id);
+            if (targetPos) {
+                state.optimalMoves = Math.abs(targetPos[0] - state.focusRow) + Math.abs(targetPos[1] - state.focusCol);
+            }
+            
+            logEvent('round_start', { 
+                target: state.targetShow.title,
+                targetPosition: findShowPosition(state.targetShow.id),
+                startPosition: [state.focusRow, state.focusCol],
+                optimalMoves: state.optimalMoves
+            });
+        }
+        
+        function handleSelection() {
+            if (!state.gameActive) return;
+            
+            const currentShow = state.grid[state.focusRow][state.focusCol];
+            const elapsed = (performance.now() - state.roundStartTime) / 1000;
+            const gameElapsed = (performance.now() - state.gameStartTime) / 1000;
+            
+            // Check if clicking on a wiggling tile (distractor)
+            const currentTile = document.querySelector(`.tile[data-row="${state.focusRow}"][data-col="${state.focusCol}"]`);
+            if (currentTile && currentTile.dataset.wiggling === 'true') {
+                state.wiggleClickCount++;
+                logEvent('wiggle_click', { show: currentShow.title });
+            }
+            
+            if (currentShow.id === state.targetShow.id) {
+                handleCorrectSelection(elapsed, gameElapsed);
+            } else {
+                handleWrongSelection(currentShow, gameElapsed);
+            }
+        }
+        
+        function handleCorrectSelection(elapsed, gameElapsed) {
+            state.found++;
+            state.streak++;
+            if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+            state.reactionTimes.push(elapsed);
+            state.movesPerRound.push(state.roundMoves);
+            
+            // Track path efficiency (optimal moves vs actual)
+            if (state.optimalMoves > 0) {
+                const efficiency = state.optimalMoves / Math.max(state.roundMoves, 1);
+                state.pathEfficiencies.push(Math.min(efficiency, 1)); // Cap at 1 (100%)
+            }
+            
+            // Track direction changes for this round
+            state.directionChanges.push(state.roundDirectionChanges);
+            
+            // Track early vs late game performance
+            if (gameElapsed <= 20) {
+                state.earlyGameRT.push(elapsed);
+            } else if (gameElapsed >= 40) {
+                state.lateGameRT.push(elapsed);
+            }
+            
+            const tile = document.querySelector(`.tile[data-row="${state.focusRow}"][data-col="${state.focusCol}"]`);
+            tile.classList.add('correct');
+            
+            const streakBonus = state.streak >= 3 ? ` 🔥${state.streak}` : '';
+            showToast(`✓ ${elapsed.toFixed(2)}s${streakBonus}`, 'success');
+            
+            updateFeaturedBanner(state.targetShow);
+            updateStats();
+            
+            logEvent('correct_selection', {
+                time: elapsed,
+                gameTime: gameElapsed,
+                moves: state.roundMoves,
+                optimalMoves: state.optimalMoves,
+                directionChanges: state.roundDirectionChanges,
+                show: state.targetShow.title,
+                streak: state.streak
+            });
+            
+            // Continue to next round (no round limit - time based)
+            setTimeout(() => {
+                tile.classList.remove('correct');
+                shuffleTiles();
+                setTimeout(() => startNewRound(), 400);
+            }, 500);
+        }
+        
+        function handleWrongSelection(selectedShow, gameElapsed) {
+            state.errors++;
+            state.streak = 0; // Reset streak on error
+            state.distractorClicks++;
+            
+            showToast(`✗ That's ${selectedShow.title}`, 'error');
+            
+            document.getElementById('stat-streak').textContent = state.streak;
+            
+            logEvent('wrong_selection', {
+                selected: selectedShow.title,
+                target: state.targetShow.title,
+                gameTime: gameElapsed,
+                position: [state.focusRow, state.focusCol]
+            });
+        }
+        
+        function shuffleTiles() {
+            document.querySelectorAll('.shuffle-indicator').forEach(el => el.classList.add('active'));
+            document.getElementById('shuffle-flash').classList.add('active');
+            document.querySelectorAll('.tile').forEach(t => t.classList.add('shuffling'));
+            
+            setTimeout(() => {
+                if (state.difficulty === 'easy') {
+                    state.grid.forEach((row, i) => {
+                        state.grid[i] = row.sort(() => Math.random() - 0.5);
+                    });
+                } else if (state.difficulty === 'medium') {
+                    state.grid = state.grid.sort(() => Math.random() - 0.5);
+                } else {
+                    const allShows = state.grid.flat().sort(() => Math.random() - 0.5);
+                    for (let i = 0; i < 4; i++) {
+                        state.grid[i] = allShows.slice(i * 5, (i + 1) * 5);
+                    }
+                }
+                
+                for (let i = 0; i < 4; i++) {
+                    renderRowTiles(i);
+                }
+                
+                updateFocus();
+                
+                // Track post-shuffle timing
+                state.isPostShuffle = true;
+                state.shuffleTime = performance.now();
+                
+                document.querySelectorAll('.shuffle-indicator').forEach(el => el.classList.remove('active'));
+                document.getElementById('shuffle-flash').classList.remove('active');
+                document.querySelectorAll('.tile').forEach(t => t.classList.remove('shuffling'));
+                
+                logEvent('shuffle', { difficulty: state.difficulty });
+            }, 350);
+        }
+        
+        function endGame() {
+            state.gameActive = false;
+            clearInterval(state.gameTimerInterval);
+            stopWiggleDistraction();
+            stopDemoMode();
+            
+            // Calculate basic stats
+            const avgTime = state.reactionTimes.length > 0 
+                ? state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length 
+                : 0;
+            const bestTime = state.reactionTimes.length > 0 
+                ? Math.min(...state.reactionTimes) 
+                : 0;
+            const totalSelections = state.found + state.errors;
+            const accuracy = totalSelections > 0 
+                ? Math.round((state.found / totalSelections) * 100) 
+                : 0;
+            
+            // Calculate advanced cognitive metrics
+            state.computedMetrics = computeCognitiveMetrics();
+            
+            // Update final score (big number)
+            document.getElementById('final-score').textContent = state.found;
+            
+            // Set subtitle based on performance (and demo mode)
+            let subtitle = 'Great effort! Here\'s your score';
+            if (state.demoMode) {
+                subtitle = '🤖 Demo complete! Try it yourself!';
+            } else if (state.found >= 20) {
+                subtitle = '🔥 Amazing! You\'re a StreamFocus master!';
+            } else if (state.found >= 15) {
+                subtitle = '⭐ Excellent performance!';
+            } else if (state.found >= 10) {
+                subtitle = '👍 Good job! Keep practicing!';
+            } else if (state.found >= 5) {
+                subtitle = 'Nice start! Try again to improve!';
+            }
+            document.getElementById('results-subtitle').textContent = subtitle;
+            
+            // Update detailed stats
+            document.getElementById('result-avg').textContent = avgTime > 0 ? avgTime.toFixed(2) + 's' : '-';
+            document.getElementById('result-best').textContent = bestTime > 0 ? bestTime.toFixed(2) + 's' : '-';
+            document.getElementById('result-streak').textContent = state.bestStreak;
+            document.getElementById('result-moves').textContent = state.totalMoves;
+            document.getElementById('result-accuracy').textContent = accuracy + '%';
+            document.getElementById('result-errors').textContent = state.errors;
+            
+            // Color code results
+            document.getElementById('result-avg').className = 'result-value ' + (avgTime > 0 && avgTime < 3 ? 'good' : avgTime > 5 ? 'warning' : '');
+            document.getElementById('result-accuracy').className = 'result-value ' + (accuracy >= 90 ? 'good' : accuracy < 70 ? 'warning' : '');
+            document.getElementById('result-streak').className = 'result-value ' + (state.bestStreak >= 5 ? 'good' : '');
+            
+            // Update title for demo mode
+            document.querySelector('.results-title').textContent = state.demoMode ? 'Demo Complete!' : 'Time\'s Up!';
+            document.querySelector('.results-icon').textContent = state.demoMode ? '🤖' : '🏆';
+            
+            // Show overlay
+            document.getElementById('results-overlay').classList.add('show');
+            state.overlayFocus = 0;
+            updateOverlayFocus();
+            
+            logEvent('game_end', { 
+                found: state.found, 
+                avgTime, 
+                bestTime, 
+                bestStreak: state.bestStreak,
+                totalMoves: state.totalMoves, 
+                errors: state.errors, 
+                accuracy,
+                cognitiveMetrics: state.computedMetrics
+            });
+        }
+        
+        function computeCognitiveMetrics() {
+            const safeAvg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+            const safeMin = arr => arr.length > 0 ? Math.min(...arr) : null;
+            const safeMax = arr => arr.length > 0 ? Math.max(...arr) : null;
+            const safeStd = arr => {
+                if (arr.length < 2) return null;
+                const avg = safeAvg(arr);
+                const squareDiffs = arr.map(v => Math.pow(v - avg, 2));
+                return Math.sqrt(safeAvg(squareDiffs));
+            };
+            
+            return {
+                // Processing Speed
+                processingSpeed: {
+                    avgReactionTime: safeAvg(state.reactionTimes),
+                    bestReactionTime: safeMin(state.reactionTimes),
+                    reactionTimeVariability: safeStd(state.reactionTimes),
+                    avgFirstMoveLatency: safeAvg(state.firstMoveLatencies),
+                },
+                
+                // Cognitive Flexibility
+                cognitiveFlexibility: {
+                    avgPostShuffleRecovery: safeAvg(state.postShuffleRecovery),
+                    bestPostShuffleRecovery: safeMin(state.postShuffleRecovery),
+                    worstPostShuffleRecovery: safeMax(state.postShuffleRecovery),
+                },
+                
+                // Executive Function / Planning
+                executiveFunction: {
+                    avgPathEfficiency: safeAvg(state.pathEfficiencies),
+                    avgDirectionChanges: safeAvg(state.directionChanges),
+                    totalDirectionReversals: state.directionChanges.reduce((a, b) => a + b, 0),
+                },
+                
+                // Inhibitory Control
+                inhibitoryControl: {
+                    distractorErrors: state.distractorClicks,
+                    wiggleClicks: state.wiggleClickCount,
+                    totalErrors: state.errors,
+                    errorRate: state.found > 0 ? state.errors / (state.found + state.errors) : null,
+                },
+                
+                // Sustained Attention / Fatigue
+                sustainedAttention: {
+                    earlyGameAvgRT: safeAvg(state.earlyGameRT),
+                    lateGameAvgRT: safeAvg(state.lateGameRT),
+                    fatigueIndex: (safeAvg(state.lateGameRT) && safeAvg(state.earlyGameRT)) 
+                        ? safeAvg(state.lateGameRT) / safeAvg(state.earlyGameRT) 
+                        : null,
+                    totalHesitations: state.hesitations.length,
+                    avgHesitationDuration: safeAvg(state.hesitations),
+                    bestStreak: state.bestStreak,
+                },
+                
+                // Visual Scanning
+                visualScanning: {
+                    totalRowSwitches: state.rowSwitches,
+                    rowSwitchRate: state.totalMoves > 0 ? state.rowSwitches / state.totalMoves : null,
+                    avgMovesPerTarget: safeAvg(state.movesPerRound),
+                },
+                
+                // Overall Performance
+                overallPerformance: {
+                    targetsFound: state.found,
+                    totalMoves: state.totalMoves,
+                    accuracy: state.found > 0 ? state.found / (state.found + state.errors) * 100 : 0,
+                    efficiency: state.totalMoves > 0 ? state.found / state.totalMoves * 100 : 0,
+                }
+            };
+        }
+        
+        // ================================================================
+        // NAVIGATION
+        // ================================================================
+        function navigate(direction) {
+            if (!state.gameActive) {
+                if (!document.getElementById('start-overlay').classList.contains('hidden')) {
+                    handleStartNavigation(direction);
+                } else if (document.getElementById('results-overlay').classList.contains('show')) {
+                    handleOverlayNavigation(direction);
+                }
+                return;
+            }
+            
+            const now = performance.now();
+            const prevRow = state.focusRow;
+            const maxRow = state.grid.length - 1;
+            const maxCol = state.grid[state.focusRow].length - 1;
+            
+            // Track first move latency (time from round start to first move)
+            if (state.roundMoves === 0) {
+                const firstMoveLatency = (now - state.roundStartTime) / 1000;
+                state.firstMoveLatencies.push(firstMoveLatency);
+                
+                // Track post-shuffle recovery time
+                if (state.isPostShuffle) {
+                    const recoveryTime = (now - state.shuffleTime) / 1000;
+                    state.postShuffleRecovery.push(recoveryTime);
+                    state.isPostShuffle = false;
+                }
+            }
+            
+            // Track hesitations (pauses > 1 second between moves)
+            if (state.roundMoves > 0) {
+                const timeSinceLastMove = (now - state.lastMoveTime) / 1000;
+                if (timeSinceLastMove > 1.0) {
+                    state.hesitations.push(timeSinceLastMove);
+                    logEvent('hesitation', { duration: timeSinceLastMove });
+                }
+            }
+            state.lastMoveTime = now;
+            
+            // Track direction changes (reversals indicate uncertainty)
+            const opposites = { 'up': 'down', 'down': 'up', 'left': 'right', 'right': 'left' };
+            if (state.lastDirection && opposites[state.lastDirection] === direction) {
+                state.roundDirectionChanges++;
+            }
+            state.lastDirection = direction;
+            
+            // Execute movement
+            switch (direction) {
+                case 'up':
+                    if (state.focusRow > 0) state.focusRow--;
+                    break;
+                case 'down':
+                    if (state.focusRow < maxRow) state.focusRow++;
+                    break;
+                case 'left':
+                    if (state.focusCol > 0) state.focusCol--;
+                    break;
+                case 'right':
+                    if (state.focusCol < maxCol) state.focusCol++;
+                    break;
+            }
+            
+            const newMaxCol = state.grid[state.focusRow].length - 1;
+            if (state.focusCol > newMaxCol) state.focusCol = newMaxCol;
+            
+            // Track row switches (vertical scanning pattern)
+            if (state.focusRow !== prevRow) {
+                state.rowSwitches++;
+            }
+            
+            state.totalMoves++;
+            state.roundMoves++;
+            
+            updateFocus();
+            updateRowDots();
+            updateFeaturedBanner(state.grid[state.focusRow][state.focusCol]);
+            
+            logEvent('navigate', { 
+                direction, 
+                position: [state.focusRow, state.focusCol],
+                roundMoves: state.roundMoves
+            });
+        }
+        
+        function updateFocus() {
+            document.querySelectorAll('.tile.focused').forEach(t => t.classList.remove('focused'));
+            
+            const tile = document.querySelector(`.tile[data-row="${state.focusRow}"][data-col="${state.focusCol}"]`);
+            if (tile) {
+                tile.classList.add('focused');
+                
+                // Scroll the row horizontally to show the tile
+                const container = tile.closest('.tiles-container');
+                if (container) {
+                    const tileRect = tile.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    
+                    if (tileRect.left < containerRect.left || tileRect.right > containerRect.right) {
+                        tile.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
+                }
+                
+                // Scroll the content area vertically to show the row
+                const contentArea = document.getElementById('content-area');
+                const row = tile.closest('.content-row');
+                if (row && contentArea) {
+                    const rowRect = row.getBoundingClientRect();
+                    const areaRect = contentArea.getBoundingClientRect();
+                    
+                    if (rowRect.top < areaRect.top || rowRect.bottom > areaRect.bottom) {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
+        }
+        
+        function updateFeaturedBanner(show) {
+            document.getElementById('featured-title').textContent = show.title;
+            document.getElementById('featured-rating').textContent = `★ ${show.rating}`;
+            document.getElementById('featured-year').textContent = show.year;
+            document.getElementById('featured-genre').textContent = show.genre;
+            document.getElementById('featured-bg').style.background = 
+                `linear-gradient(135deg, ${show.color}66, ${show.color}22)`;
+        }
+        
+        function handleTileClick(row, col) {
+            state.focusRow = row;
+            state.focusCol = col;
+            updateFocus();
+            updateRowDots();
+            updateFeaturedBanner(state.grid[row][col]);
+            handleSelection();
+        }
+        
+        // ================================================================
+        // UI HELPERS
+        // ================================================================
+        function handleStartNavigation(direction) {
+            const options = document.querySelectorAll('.difficulty-option');
+            
+            if (direction === 'up' && state.startFocus > 0) {
+                state.startFocus--;
+            } else if (direction === 'down' && state.startFocus < options.length - 1) {
+                state.startFocus++;
+            }
+            
+            options.forEach((opt, i) => opt.classList.toggle('focused', i === state.startFocus));
+        }
+        
+        function handleStartSelect() {
+            const options = ['easy', 'medium', 'hard', 'demo'];
+            const selected = options[state.startFocus];
+            
+            if (selected === 'demo') {
+                state.difficulty = 'medium'; // Demo uses medium difficulty
+                state.demoMode = true;
+                startGame();
+                startDemoMode();
+            } else {
+                state.difficulty = selected;
+                state.demoMode = false;
+                startGame();
+            }
+        }
+        
+        function handleOverlayNavigation(direction) {
+            if (direction === 'left' && state.overlayFocus > 0) {
+                state.overlayFocus--;
+                updateOverlayFocus();
+            } else if (direction === 'right' && state.overlayFocus < 2) {
+                state.overlayFocus++;
+                updateOverlayFocus();
+            }
+        }
+        
+        function handleOverlaySelect() {
+            if (state.overlayFocus === 0) {
+                // Play Again
+                document.getElementById('results-overlay').classList.remove('show');
+                startGame();
+            } else if (state.overlayFocus === 1) {
+                // Main Menu
+                goToMainMenu();
+            } else {
+                // Export
+                exportData();
+            }
+        }
+        
+        function updateOverlayFocus() {
+            document.getElementById('btn-retry').classList.toggle('focused', state.overlayFocus === 0);
+            document.getElementById('btn-menu').classList.toggle('focused', state.overlayFocus === 1);
+            document.getElementById('btn-export').classList.toggle('focused', state.overlayFocus === 2);
+        }
+        
+        function goToMainMenu() {
+            stopDemoMode();
+            stopWiggleDistraction();
+            document.getElementById('results-overlay').classList.remove('show');
+            document.getElementById('start-overlay').classList.remove('hidden');
+            state.startFocus = 0;
+            document.querySelectorAll('.difficulty-option').forEach((opt, i) => {
+                opt.classList.toggle('focused', i === 0);
+            });
+            
+            // Reset game timer display
+            document.getElementById('game-timer').textContent = GAME_DURATION;
+            document.getElementById('game-timer').classList.remove('warning', 'critical');
+        }
+        
+        // ================================================================
+        // DEMO MODE
+        // ================================================================
+        function startDemoMode() {
+            document.getElementById('demo-indicator').classList.add('show');
+            
+            // Demo AI makes moves with varying delays to simulate human-like behavior
+            scheduleDemoMove();
+        }
+        
+        function stopDemoMode() {
+            state.demoMode = false;
+            if (state.demoInterval) {
+                clearTimeout(state.demoInterval);
+                state.demoInterval = null;
+            }
+            document.getElementById('demo-indicator').classList.remove('show');
+        }
+        
+        function scheduleDemoMove() {
+            if (!state.gameActive || !state.demoMode) return;
+            
+            // Find target position
+            const targetPos = findShowPosition(state.targetShow.id);
+            if (!targetPos) return;
+            
+            const [targetRow, targetCol] = targetPos;
+            const currentRow = state.focusRow;
+            const currentCol = state.focusCol;
+            
+            // Calculate next move
+            let direction = null;
+            let delay = 150 + Math.random() * 200; // Base delay 150-350ms
+            
+            if (currentRow !== targetRow) {
+                // Need to move vertically
+                direction = currentRow < targetRow ? 'down' : 'up';
+            } else if (currentCol !== targetCol) {
+                // Need to move horizontally
+                direction = currentCol < targetCol ? 'right' : 'left';
+            } else {
+                // We're at the target - select it!
+                delay = 300 + Math.random() * 300; // Slightly longer pause before selecting
+                state.demoInterval = setTimeout(() => {
+                    if (state.gameActive && state.demoMode) {
+                        handleSelection();
+                        // Schedule next move after selection completes
+                        setTimeout(() => scheduleDemoMove(), 800);
+                    }
+                }, delay);
+                return;
+            }
+            
+            // Occasionally add a "mistake" - wrong direction (10% chance)
+            if (Math.random() < 0.1) {
+                const directions = ['up', 'down', 'left', 'right'];
+                const wrongDirs = directions.filter(d => d !== direction);
+                direction = wrongDirs[Math.floor(Math.random() * wrongDirs.length)];
+                delay += 100; // Slightly slower on mistakes
+            }
+            
+            // Execute move
+            state.demoInterval = setTimeout(() => {
+                if (state.gameActive && state.demoMode) {
+                    navigate(direction);
+                    scheduleDemoMove();
+                }
+            }, delay);
+        }
+        
+        function showToast(message, type = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + type;
+            setTimeout(() => toast.classList.remove('show'), 1000);
+        }
+        
+        function updateStats() {
+            document.getElementById('stat-found').textContent = state.found;
+            document.getElementById('stat-streak').textContent = state.streak;
+            if (state.reactionTimes.length > 0) {
+                const avg = state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length;
+                document.getElementById('stat-avg').textContent = avg.toFixed(1) + 's';
+            }
+        }
+        
+        function findShowPosition(showId) {
+            for (let row = 0; row < state.grid.length; row++) {
+                for (let col = 0; col < state.grid[row].length; col++) {
+                    if (state.grid[row][col].id === showId) return [row, col];
+                }
+            }
+            return null;
+        }
+        
+        function logEvent(type, data = {}) {
+            state.events.push({ type, timestamp: Date.now(), ...data });
+        }
+        
+        function exportData() {
+            const timestamp = new Date().toISOString();
+            
+            const report = {
+                // Session Info
+                sessionInfo: {
+                    exportedAt: timestamp,
+                    gameDuration: GAME_DURATION,
+                    difficulty: state.difficulty,
+                    demoMode: state.demoMode,
+                },
+                
+                // Summary Scores
+                summary: {
+                    targetsFound: state.found,
+                    totalErrors: state.errors,
+                    accuracy: state.found > 0 ? ((state.found / (state.found + state.errors)) * 100).toFixed(1) + '%' : '0%',
+                    bestStreak: state.bestStreak,
+                    totalMoves: state.totalMoves,
+                },
+                
+                // Cognitive Metrics (computed)
+                cognitiveMetrics: state.computedMetrics,
+                
+                // Raw Data Arrays
+                rawData: {
+                    reactionTimes: state.reactionTimes,
+                    movesPerRound: state.movesPerRound,
+                    firstMoveLatencies: state.firstMoveLatencies,
+                    pathEfficiencies: state.pathEfficiencies,
+                    directionChanges: state.directionChanges,
+                    postShuffleRecovery: state.postShuffleRecovery,
+                    hesitations: state.hesitations,
+                    earlyGameRT: state.earlyGameRT,
+                    lateGameRT: state.lateGameRT,
+                },
+                
+                // Detailed Event Log
+                eventLog: state.events,
+            };
+            
+            // Export JSON
+            const jsonBlob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement('a');
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `streamfocus-report-${timestamp.slice(0,10)}.json`;
+            jsonLink.click();
+            URL.revokeObjectURL(jsonUrl);
+            
+            // Also generate human-readable report
+            setTimeout(() => {
+                const readableReport = generateReadableReport(report);
+                const txtBlob = new Blob([readableReport], { type: 'text/plain' });
+                const txtUrl = URL.createObjectURL(txtBlob);
+                const txtLink = document.createElement('a');
+                txtLink.href = txtUrl;
+                txtLink.download = `streamfocus-report-${timestamp.slice(0,10)}.txt`;
+                txtLink.click();
+                URL.revokeObjectURL(txtUrl);
+            }, 500);
+            
+            showToast('Reports exported!', 'success');
+        }
+        
+        function generateReadableReport(data) {
+            const m = data.cognitiveMetrics;
+            const fmt = (v, dec = 2) => v !== null && v !== undefined ? v.toFixed(dec) : 'N/A';
+            const pct = v => v !== null && v !== undefined ? (v * 100).toFixed(1) + '%' : 'N/A';
+            
+            return `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    STREAMFOCUS COGNITIVE ASSESSMENT REPORT                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SESSION INFORMATION
+────────────────────────────────────────────────────────────────────────────────
+  Date/Time:        ${data.sessionInfo.exportedAt}
+  Difficulty:       ${data.sessionInfo.difficulty.toUpperCase()}
+  Duration:         ${data.sessionInfo.gameDuration} seconds
+  Mode:             ${data.sessionInfo.demoMode ? 'Demo (AI)' : 'Player'}
+
+════════════════════════════════════════════════════════════════════════════════
+                              PERFORMANCE SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+  Targets Found:    ${data.summary.targetsFound}
+  Total Errors:     ${data.summary.totalErrors}
+  Accuracy:         ${data.summary.accuracy}
+  Best Streak:      ${data.summary.bestStreak}
+  Total Moves:      ${data.summary.totalMoves}
+
+════════════════════════════════════════════════════════════════════════════════
+                           COGNITIVE DOMAIN ANALYSIS
+════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ PROCESSING SPEED                                                             │
+│ Measures how quickly information is processed and responses are made         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Average Reaction Time:      ${fmt(m.processingSpeed.avgReactionTime)} seconds
+│   Best Reaction Time:         ${fmt(m.processingSpeed.bestReactionTime)} seconds
+│   Reaction Time Variability:  ${fmt(m.processingSpeed.reactionTimeVariability)} seconds (SD)
+│   Avg First Move Latency:     ${fmt(m.processingSpeed.avgFirstMoveLatency)} seconds
+│                                                                              │
+│   Interpretation: Lower values indicate faster cognitive processing.         │
+│   High variability may suggest inconsistent attention or fatigue.            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ COGNITIVE FLEXIBILITY                                                        │
+│ Measures ability to adapt when the environment changes                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Avg Post-Shuffle Recovery:  ${fmt(m.cognitiveFlexibility.avgPostShuffleRecovery)} seconds
+│   Best Recovery Time:         ${fmt(m.cognitiveFlexibility.bestPostShuffleRecovery)} seconds
+│   Worst Recovery Time:        ${fmt(m.cognitiveFlexibility.worstPostShuffleRecovery)} seconds
+│                                                                              │
+│   Interpretation: Faster recovery after shuffles indicates better            │
+│   cognitive flexibility and set-shifting ability.                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ EXECUTIVE FUNCTION / PLANNING                                                │
+│ Measures ability to plan efficient paths and make stable decisions           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Average Path Efficiency:    ${pct(m.executiveFunction.avgPathEfficiency)}
+│   Avg Direction Changes:      ${fmt(m.executiveFunction.avgDirectionChanges, 1)} per target
+│   Total Direction Reversals:  ${m.executiveFunction.totalDirectionReversals}
+│                                                                              │
+│   Interpretation: Higher efficiency = better planning. Fewer reversals       │
+│   indicate more decisive, goal-directed navigation.                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ INHIBITORY CONTROL                                                           │
+│ Measures ability to resist distractions and avoid impulsive errors           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Distractor Errors:          ${m.inhibitoryControl.distractorErrors}
+│   Wiggle Animation Clicks:    ${m.inhibitoryControl.wiggleClicks}
+│   Total Errors:               ${m.inhibitoryControl.totalErrors}
+│   Error Rate:                 ${pct(m.inhibitoryControl.errorRate)}
+│                                                                              │
+│   Interpretation: Lower values indicate better impulse control and           │
+│   resistance to visual distractions.                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SUSTAINED ATTENTION / FATIGUE                                                │
+│ Measures ability to maintain focus and detect fatigue over time              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Early Game Avg RT (0-20s):  ${fmt(m.sustainedAttention.earlyGameAvgRT)} seconds
+│   Late Game Avg RT (40-60s):  ${fmt(m.sustainedAttention.lateGameAvgRT)} seconds
+│   Fatigue Index:              ${fmt(m.sustainedAttention.fatigueIndex)} (late/early ratio)
+│   Total Hesitations (>1s):    ${m.sustainedAttention.totalHesitations}
+│   Avg Hesitation Duration:    ${fmt(m.sustainedAttention.avgHesitationDuration)} seconds
+│   Best Streak:                ${m.sustainedAttention.bestStreak}
+│                                                                              │
+│   Interpretation: Fatigue Index > 1.0 suggests slowing over time.            │
+│   More hesitations may indicate uncertainty or attention lapses.             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ VISUAL SCANNING                                                              │
+│ Measures visual search strategy and efficiency                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   Total Row Switches:         ${m.visualScanning.totalRowSwitches}
+│   Row Switch Rate:            ${pct(m.visualScanning.rowSwitchRate)} of moves
+│   Avg Moves Per Target:       ${fmt(m.visualScanning.avgMovesPerTarget, 1)}
+│                                                                              │
+│   Interpretation: Systematic scanning patterns (moderate row switches)       │
+│   may indicate organized search strategy.                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════════
+                              CLINICAL NOTES
+════════════════════════════════════════════════════════════════════════════════
+
+This assessment measures multiple cognitive domains relevant to:
+  • Alzheimer's Disease: Processing speed, visual search, sustained attention
+  • Parkinson's Disease: Executive function, cognitive flexibility, inhibition
+  • MCI (Mild Cognitive Impairment): Overall performance, fatigue patterns
+  • ADHD: Inhibitory control, attention variability, impulsivity
+
+IMPORTANT DISCLAIMER:
+This is a research/demonstration tool and should NOT be used for clinical
+diagnosis. Results should be interpreted by qualified healthcare professionals
+in conjunction with comprehensive neuropsychological evaluation.
+
+════════════════════════════════════════════════════════════════════════════════
+                         Generated by StreamFocus v2.0
+                    © ${new Date().getFullYear()} Cognitive Assessment Platform
+════════════════════════════════════════════════════════════════════════════════
+`.trim();
+        }
+        
+        // ================================================================
+        // EVENT LISTENERS
+        // ================================================================
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(e.key)) {
+                    e.preventDefault();
+                }
+                
+                switch (e.key) {
+                    case 'ArrowUp': navigate('up'); break;
+                    case 'ArrowDown': navigate('down'); break;
+                    case 'ArrowLeft': navigate('left'); break;
+                    case 'ArrowRight': navigate('right'); break;
+                    case 'Enter':
+                    case ' ':
+                        if (!state.gameActive) {
+                            if (!document.getElementById('start-overlay').classList.contains('hidden')) {
+                                handleStartSelect();
+                            } else {
+                                handleOverlaySelect();
+                            }
+                        } else {
+                            handleSelection();
+                        }
+                        break;
+                }
+            });
+            
+            document.getElementById('btn-start').addEventListener('click', handleStartSelect);
+            document.getElementById('btn-retry').addEventListener('click', () => {
+                document.getElementById('results-overlay').classList.remove('show');
+                state.demoMode = false;
+                startGame();
+            });
+            document.getElementById('btn-menu').addEventListener('click', goToMainMenu);
+            document.getElementById('btn-export').addEventListener('click', exportData);
+            document.getElementById('btn-stop-demo').addEventListener('click', () => {
+                stopDemoMode();
+                endGame();
+            });
+            
+            document.querySelectorAll('.difficulty-option').forEach((opt, index) => {
+                opt.addEventListener('click', () => {
+                    state.startFocus = index;
+                    document.querySelectorAll('.difficulty-option').forEach((o, i) => {
+                        o.classList.toggle('focused', i === index);
+                    });
+                });
+            });
+        }
+        
+        // ================================================================
+        // START
+        // ================================================================
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
