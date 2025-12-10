@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joy-Con IR Camera v3 (Fixed Indices)</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-tertiary: #252542;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0a0;
+      --success: #2ec4b6;
+      --error: #e63946;
+      --warning: #f4a261;
+      --info: #4cc9f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Monaco', 'Menlo', monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    h1 { 
+      font-size: 1.4rem; 
+      margin-bottom: 20px;
+      color: var(--info);
+    }
+    
+    h1 small {
+      font-size: 0.65rem;
+      color: var(--success);
+      display: block;
+      margin-top: 5px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--bg-tertiary);
+      color: white;
+      border: 1px solid var(--info);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    button:hover:not(:disabled) { background: var(--info); color: #000; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.danger { border-color: var(--error); }
+    button.danger:hover:not(:disabled) { background: var(--error); }
+    button.success { border-color: var(--success); }
+    button.success:hover:not(:disabled) { background: var(--success); }
+
+    .status {
+      padding: 12px 15px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      gap: 8px;
+    }
+
+    .status-label { color: var(--text-secondary); min-width: 100px; }
+    .status-value { color: var(--info); font-weight: bold; }
+    .status-value.error { color: var(--error); }
+    .status-value.success { color: var(--success); }
+    .status-value.warning { color: var(--warning); }
+
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    @media (max-width: 1200px) {
+      .panels { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .panel h3 {
+      font-size: 13px;
+      color: var(--info);
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .log {
+      background: #000;
+      border-radius: 6px;
+      padding: 8px;
+      height: 350px;
+      overflow-y: auto;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .log-entry { margin: 2px 0; white-space: pre-wrap; word-break: break-all; }
+    .log-entry.info { color: var(--info); }
+    .log-entry.success { color: var(--success); }
+    .log-entry.warn { color: var(--warning); }
+    .log-entry.error { color: var(--error); }
+    .log-entry.data { color: #888; }
+    .log-entry.send { color: #ff79c6; }
+    .log-entry.recv { color: #50fa7b; }
+
+    .hex-display {
+      background: #000;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 9px;
+      height: 180px;
+      overflow-y: auto;
+      white-space: pre;
+      font-family: monospace;
+    }
+
+    .ir-canvas-container {
+      background: #000;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    #ir-canvas {
+      border: 1px solid var(--bg-tertiary);
+      image-rendering: pixelated;
+      width: 320px;
+      height: 240px;
+    }
+
+    .step-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 4px;
+      margin-bottom: 15px;
+    }
+
+    .step-buttons button {
+      text-align: left;
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+
+    .step-num {
+      display: inline-block;
+      width: 28px;
+      color: var(--warning);
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    input[type="checkbox"] { width: 16px; height: 16px; }
+
+    select {
+      padding: 8px;
+      background: var(--bg-tertiary);
+      color: white;
+      border: 1px solid var(--info);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .index-note {
+      background: #1a0a0a;
+      border: 1px solid var(--error);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 15px;
+      font-size: 11px;
+    }
+    .index-note strong { color: var(--error); }
+  </style>
+</head>
+<body>
+  <h1>🔬 Joy-Con IR Camera v3
+    <small>Fixed WebHID byte indices (Java indices - 1)</small>
+  </h1>
+
+  <div class="index-note">
+    <strong>⚠️ Critical Fix:</strong> WebHID doesn't include report ID in data buffer. 
+    Java indices are shifted by -1: Java [49]→WebHID [48], Java [52]→[51], Java [56]→[55], Java [59]→[58]
+  </div>
+
+  <div class="controls">
+    <button id="connect-btn">Connect Right Joy-Con</button>
+    <button id="disconnect-btn" class="danger" disabled>Disconnect</button>
+    <button id="clear-log">Clear Log</button>
+    <label><input type="checkbox" id="auto-scroll" checked> Auto-scroll</label>
+    <label><input type="checkbox" id="pause-updates"> Pause</label>
+    <select id="resolution">
+      <option value="30">40×30 (4 frags)</option>
+      <option value="60">80×60 (16 frags)</option>
+      <option value="120">160×120 (64 frags)</option>
+      <option value="240">320×240 (256 frags)</option>
+    </select>
+  </div>
+
+  <div class="status">
+    <div class="status-item">
+      <span class="status-label">Connection:</span>
+      <span class="status-value" id="conn-status">Not Connected</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Report ID:</span>
+      <span class="status-value" id="last-report">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">[48] type:</span>
+      <span class="status-value" id="byte48">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">[51] frag#:</span>
+      <span class="status-value" id="byte51">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">[55] mode:</span>
+      <span class="status-value" id="byte55">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Frames:</span>
+      <span class="status-value" id="frame-count">0</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Last ACK:</span>
+      <span class="status-value" id="last-ack">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Fragments:</span>
+      <span class="status-value" id="frag-progress">--</span>
+    </div>
+  </div>
+
+  <div class="step-buttons">
+    <button onclick="runInit()">🔧 Run Init (silenceInput)</button>
+    <button onclick="step0_setInputMode31()"><span class="step-num">0.</span> Set Input Mode 0x31</button>
+    <button onclick="step1_enableMCU()"><span class="step-num">1.</span> Enable MCU (0x22)</button>
+    <button onclick="step2_waitMCUStandby()"><span class="step-num">2.</span> Wait MCU Standby</button>
+    <button onclick="step3_setMCUModeIR()"><span class="step-num">3.</span> Set MCU Mode IR</button>
+    <button onclick="step4_waitMCUModeIR()"><span class="step-num">4.</span> Wait MCU Mode IR</button>
+    <button onclick="step5_setIRMode()"><span class="step-num">5.</span> Set IR Mode</button>
+    <button onclick="step6_configAndStatus()"><span class="step-num">6.</span> Config Registers</button>
+    <button onclick="step7_writeRegisters()"><span class="step-num">7.</span> Write IR Registers</button>
+    <button onclick="step8_finalizeRegisters()"><span class="step-num">8.</span> Finalize + LEDs</button>
+    <button onclick="step9_startStream()"><span class="step-num">9.</span> Start IR Stream</button>
+    <button onclick="stopStream()" class="danger">Stop</button>
+    <button onclick="runFullSequence()" class="success">▶ Full Sequence</button>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h3>📋 Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="panel">
+      <h3>📊 Last Report (Hex) - Key bytes highlighted</h3>
+      <div class="hex-display" id="hex-display">No data yet</div>
+    </div>
+  </div>
+
+  <div class="panels" style="margin-top: 15px;">
+    <div class="panel">
+      <h3>📷 IR Camera</h3>
+      <div class="ir-canvas-container">
+        <canvas id="ir-canvas" width="40" height="30"></canvas>
+        <div style="margin-top: 8px; font-size: 11px;">
+          Frame: <span id="frame-num">0</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>ℹ️ Byte Index Reference (WebHID)</h3>
+      <div style="font-size: 10px; line-height: 1.5; padding: 8px; background: #000; border-radius: 6px;">
+        <p><strong>0x21 Reply (ACK):</strong></p>
+        <p>• [12] = ACK byte (0x80 = success)</p>
+        <p>• [13] = Subcommand ID</p>
+        <br>
+        <p><strong>0x31 Report (MCU/IR):</strong></p>
+        <p>• [48] = Type: 0x01=state, 0x03=IR, 0x13=config, 0xFF=empty</p>
+        <p>• [51] = Fragment number (when type=0x03)</p>
+        <p>• [55] = MCU mode: 0x01=standby, 0x05=IR</p>
+        <p>• [58-357] = 300 bytes image data</p>
+        <br>
+        <p><strong>Expected Flow:</strong></p>
+        <p>1. Step 0-1: Get 0x21 ACKs</p>
+        <p>2. Step 2: [55]=0x01 (standby)</p>
+        <p>3. Step 4: [55]=0x05 (IR mode)</p>
+        <p>4. Step 9: [48]=0x03 (IR data!)</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== CRC8 TABLE ====================
+    const MCU_CRC8_TABLE = new Uint8Array([
+      0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15,
+      0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
+      0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65,
+      0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D,
+      0xE0, 0xE7, 0xEE, 0xE9, 0xFC, 0xFB, 0xF2, 0xF5,
+      0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
+      0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85,
+      0xA8, 0xAF, 0xA6, 0xA1, 0xB4, 0xB3, 0xBA, 0xBD,
+      0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2,
+      0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA,
+      0xB7, 0xB0, 0xB9, 0xBE, 0xAB, 0xAC, 0xA5, 0xA2,
+      0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
+      0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32,
+      0x1F, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0D, 0x0A,
+      0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42,
+      0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A,
+      0x89, 0x8E, 0x87, 0x80, 0x95, 0x92, 0x9B, 0x9C,
+      0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
+      0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC,
+      0xC1, 0xC6, 0xCF, 0xC8, 0xDD, 0xDA, 0xD3, 0xD4,
+      0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C,
+      0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44,
+      0x19, 0x1E, 0x17, 0x10, 0x05, 0x02, 0x0B, 0x0C,
+      0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
+      0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B,
+      0x76, 0x71, 0x78, 0x7F, 0x6A, 0x6D, 0x64, 0x63,
+      0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B,
+      0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13,
+      0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB,
+      0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
+      0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB,
+      0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3
+    ]);
+
+    function mcuCrc8(packet, size, start) {
+      let crc8 = 0x00;
+      for (let i = start - 1; i < size + start - 1; i++) {
+        crc8 = MCU_CRC8_TABLE[(crc8 ^ packet[i]) & 0xFF];
+      }
+      return crc8;
+    }
+
+    // ==================== RESOLUTION SETTINGS ====================
+    const RESOLUTIONS = {
+      30:  { width: 40,  height: 30,  maxFrag: 0x03, resReg: 0b01101001 },
+      60:  { width: 80,  height: 60,  maxFrag: 0x0F, resReg: 0b01100100 },
+      120: { width: 160, height: 120, maxFrag: 0x3F, resReg: 0b01010000 },
+      240: { width: 320, height: 240, maxFrag: 0xFF, resReg: 0x00 }
+    };
+
+    let currentRes = RESOLUTIONS[30];
+
+    // ==================== LOGGING ====================
+    function log(msg, type = 'info') {
+      if (document.getElementById('pause-updates').checked) return;
+      
+      const container = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+      entry.textContent = `[${time}] ${msg}`;
+      container.appendChild(entry);
+      
+      if (document.getElementById('auto-scroll').checked) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function logHex(label, data, type = 'data') {
+      const hex = Array.from(data.slice(0, 48)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      log(`${label}: ${hex}`, type);
+    }
+
+    function updateHexDisplay(reportId, data) {
+      if (document.getElementById('pause-updates').checked) return;
+      
+      const display = document.getElementById('hex-display');
+      let hex = `Report: 0x${reportId.toString(16).padStart(2, '0')} | Length: ${data.length}\n`;
+      hex += `═══════════════════════════════════════════════════\n`;
+      
+      // Highlight key bytes for 0x31 reports
+      if (reportId === 0x31 && data.length > 60) {
+        hex += `KEY: [48]=0x${(data[48] ?? 0).toString(16).padStart(2,'0')} `;
+        hex += `[51]=0x${(data[51] ?? 0).toString(16).padStart(2,'0')} `;
+        hex += `[55]=0x${(data[55] ?? 0).toString(16).padStart(2,'0')}\n`;
+        hex += `═══════════════════════════════════════════════════\n`;
+      }
+      
+      // For 0x21 reports, show ACK info
+      if (reportId === 0x21 && data.length > 14) {
+        const ack = data[12];
+        const subcmd = data[13];
+        hex += `ACK: [12]=0x${ack.toString(16).padStart(2,'0')} `;
+        hex += `[13]=0x${subcmd.toString(16).padStart(2,'0')} `;
+        hex += `(${(ack & 0x80) ? 'SUCCESS' : 'NACK'})\n`;
+        hex += `═══════════════════════════════════════════════════\n`;
+      }
+      
+      for (let i = 0; i < Math.min(data.length, 96); i += 16) {
+        const chunk = Array.from(data.slice(i, Math.min(i + 16, data.length)));
+        const hexPart = chunk.map(b => b.toString(16).padStart(2, '0')).join(' ').padEnd(48);
+        hex += `${i.toString(16).padStart(4, '0')}: ${hexPart}\n`;
+      }
+      
+      display.textContent = hex;
+    }
+
+    // ==================== GLOBAL STATE ====================
+    let device = null;
+    let timingByte = 0;
+    let streaming = false;
+    
+    let irBuffer = new Uint8Array(320 * 240);
+    let fragsReceived = new Set();
+    let previousFragNo = 0;
+    let frameCount = 0;
+
+    const canvas = document.getElementById('ir-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // ==================== DEVICE CONNECTION ====================
+    async function connect() {
+      try {
+        log('Requesting Right Joy-Con...', 'info');
+        
+        const devices = await navigator.hid.requestDevice({
+          filters: [{ vendorId: 0x057E, productId: 0x2007 }]
+        });
+        
+        if (!devices.length) {
+          log('No device selected', 'error');
+          return;
+        }
+
+        device = devices[0];
+        log(`Device: ${device.productName}`, 'success');
+
+        if (!device.opened) {
+          await device.open();
+          log('Device opened', 'success');
+        }
+
+        device.addEventListener('inputreport', handleInputReport);
+        
+        document.getElementById('conn-status').textContent = 'Connected';
+        document.getElementById('conn-status').className = 'status-value success';
+        document.getElementById('connect-btn').disabled = true;
+        document.getElementById('disconnect-btn').disabled = false;
+
+        log('Ready! Try "Full Sequence" or individual steps.', 'info');
+
+      } catch (err) {
+        log(`Connection error: ${err.message}`, 'error');
+      }
+    }
+
+    async function disconnect() {
+      streaming = false;
+      
+      if (device) {
+        try {
+          device.removeEventListener('inputreport', handleInputReport);
+          await device.close();
+        } catch (e) {}
+        device = null;
+      }
+
+      document.getElementById('conn-status').textContent = 'Not Connected';
+      document.getElementById('conn-status').className = 'status-value';
+      document.getElementById('connect-btn').disabled = false;
+      document.getElementById('disconnect-btn').disabled = true;
+      
+      log('Disconnected', 'warn');
+    }
+
+    // ==================== INPUT REPORT HANDLER ====================
+    function handleInputReport(event) {
+      const { reportId, data } = event;
+      const bytes = new Uint8Array(data.buffer);
+      const paused = document.getElementById('pause-updates').checked;
+
+      if (!paused) {
+        document.getElementById('last-report').textContent = `0x${reportId.toString(16).padStart(2,'0')} (${bytes.length}B)`;
+        updateHexDisplay(reportId, bytes);
+      }
+
+      if (reportId === 0x21) {
+        parseSubcommandReply(bytes);
+      } else if (reportId === 0x31) {
+        parse31Report(bytes);
+      } else if (reportId === 0x30) {
+        if (!paused) log('Report 0x30 (Standard mode)', 'data');
+      } else if (reportId === 0x3F) {
+        if (!paused) log('Report 0x3F (Simple HID mode)', 'data');
+      }
+    }
+
+    function parseSubcommandReply(data) {
+      // WebHID indices (Java indices - 1):
+      // data[12] = ACK byte (Java: reply[13])
+      // data[13] = subcommand (Java: reply[14])
+      const ack = data[12];
+      const subcmdId = data[13];
+      const isAck = (ack & 0x80) !== 0;
+
+      const subcmdNames = {
+        0x03: 'SET_INPUT_MODE',
+        0x21: 'MCU_WRITE',
+        0x22: 'MCU_ENABLE',
+        0x30: 'SET_PLAYER_LIGHTS',
+        0x38: 'SET_HOME_LIGHT',
+      };
+
+      const name = subcmdNames[subcmdId] || `0x${subcmdId.toString(16)}`;
+      
+      document.getElementById('last-ack').textContent = isAck ? `✓ ${name}` : `✗ ${name}`;
+      document.getElementById('last-ack').className = `status-value ${isAck ? 'success' : 'error'}`;
+
+      if (isAck) {
+        log(`✓ ACK: ${name}`, 'recv');
+      } else {
+        log(`✗ NACK: ${name}`, 'error');
+      }
+    }
+
+    function parse31Report(data) {
+      const paused = document.getElementById('pause-updates').checked;
+      
+      // CORRECTED WebHID indices (Java - 1):
+      // data[48] = report type (Java: reply[49])
+      // data[51] = fragment number (Java: reply[52])  
+      // data[55] = MCU mode (Java: reply[56])
+      // data[58-357] = image data (Java: reply[59-358])
+      
+      const byte48 = data[48];  // Report type
+      const byte51 = data[51];  // Fragment number
+      const byte55 = data[55];  // MCU mode
+      
+      if (!paused) {
+        document.getElementById('byte48').textContent = `0x${byte48.toString(16).padStart(2,'0')}`;
+        document.getElementById('byte51').textContent = `${byte51}`;
+        document.getElementById('byte55').textContent = `0x${byte55.toString(16).padStart(2,'0')}`;
+        
+        // Color code byte48
+        const b48el = document.getElementById('byte48');
+        if (byte48 === 0x03) {
+          b48el.className = 'status-value success';
+          b48el.textContent += ' (IR!)';
+        } else if (byte48 === 0x01) {
+          b48el.className = 'status-value info';
+          b48el.textContent += ' (state)';
+        } else if (byte48 === 0x13) {
+          b48el.className = 'status-value info';
+          b48el.textContent += ' (config)';
+        } else if (byte48 === 0xFF) {
+          b48el.className = 'status-value warning';
+          b48el.textContent += ' (empty)';
+        } else {
+          b48el.className = 'status-value';
+        }
+        
+        // Color code byte55
+        const b55el = document.getElementById('byte55');
+        if (byte55 === 0x05) {
+          b55el.className = 'status-value success';
+          b55el.textContent += ' (IR)';
+        } else if (byte55 === 0x01) {
+          b55el.className = 'status-value info';
+          b55el.textContent += ' (standby)';
+        } else {
+          b55el.className = 'status-value';
+        }
+      }
+
+      // Handle based on report type
+      if (byte48 === 0x03) {
+        handleIRFragment(data);
+      } else if (byte48 === 0x01) {
+        const modeNames = { 0x01: 'Standby', 0x04: 'NFC', 0x05: 'IR', 0x06: 'Busy' };
+        log(`MCU state: ${modeNames[byte55] || `0x${byte55.toString(16)}`}`, 'data');
+      } else if (byte48 === 0x13) {
+        // Config status - check bytes 49, 50 (Java: 50, 51)
+        log(`Config status: [49]=0x${data[49]?.toString(16)} [50]=0x${data[50]?.toString(16)}`, 'data');
+      } else if (byte48 === 0xFF) {
+        if (streaming) {
+          log('Empty report (0xFF), resending ACK...', 'warn');
+          sendIRAck(previousFragNo);
+        }
+      } else {
+        log(`0x31: type=[48]=0x${byte48.toString(16)}`, 'data');
+      }
+    }
+
+    function handleIRFragment(data) {
+      // CORRECTED: Fragment at data[51], image at data[58]
+      const fragNo = data[51];
+      const fragData = data.slice(58, 58 + 300);
+      
+      fragsReceived.add(fragNo);
+      
+      const paused = document.getElementById('pause-updates').checked;
+      if (!paused) {
+        document.getElementById('frag-progress').textContent = `${fragsReceived.size}/${currentRes.maxFrag + 1} (#${fragNo})`;
+      }
+      
+      // Copy to buffer
+      const offset = fragNo * 300;
+      for (let i = 0; i < fragData.length && (offset + i) < irBuffer.length; i++) {
+        irBuffer[offset + i] = fragData[i];
+      }
+      
+      log(`IR Frag #${fragNo}/${currentRes.maxFrag}`, 'recv');
+      
+      // Check if final fragment
+      if (fragNo === currentRes.maxFrag) {
+        frameCount++;
+        document.getElementById('frame-count').textContent = frameCount;
+        document.getElementById('frame-num').textContent = frameCount;
+        renderIRFrame();
+        log(`★ Frame ${frameCount} complete!`, 'success');
+        fragsReceived.clear();
+      }
+      
+      previousFragNo = fragNo;
+      
+      if (streaming) {
+        sendIRAck(fragNo);
+      }
+    }
+
+    function renderIRFrame() {
+      canvas.width = currentRes.width;
+      canvas.height = currentRes.height;
+      
+      const imageData = ctx.createImageData(currentRes.width, currentRes.height);
+      const totalPixels = currentRes.width * currentRes.height;
+      
+      for (let i = 0; i < totalPixels; i++) {
+        const gray = irBuffer[i];
+        const idx = i * 4;
+        imageData.data[idx] = gray;
+        imageData.data[idx + 1] = gray;
+        imageData.data[idx + 2] = gray;
+        imageData.data[idx + 3] = 255;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    // ==================== COMMAND SENDING ====================
+    async function sendReport(reportId, data) {
+      if (!device) {
+        log('Not connected!', 'error');
+        return;
+      }
+
+      const bytes = new Uint8Array(data);
+      logHex(`SEND [0x${reportId.toString(16)}]`, bytes, 'send');
+      
+      try {
+        await device.sendReport(reportId, bytes);
+      } catch (err) {
+        log(`Send error: ${err.message}`, 'error');
+      }
+    }
+
+    async function sendSubcommand(subcmdId, params = []) {
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = subcmdId;
+      for (let i = 0; i < params.length; i++) {
+        packet[10 + i] = params[i];
+      }
+      await sendReport(0x01, packet);
+    }
+
+    async function sendMCUSubcommand(mcuCmd, mcuSubcmd, params = []) {
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = 0x21;
+      packet[10] = mcuCmd;
+      packet[11] = mcuSubcmd;
+      for (let i = 0; i < params.length; i++) {
+        packet[12 + i] = params[i];
+      }
+      packet[47] = mcuCrc8(packet, 36, 12);
+      await sendReport(0x01, packet);
+    }
+
+    async function sendOutputReport11(subcmd, params = []) {
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = subcmd;
+      for (let i = 0; i < params.length; i++) {
+        packet[10 + i] = params[i];
+      }
+      await sendReport(0x11, packet);
+    }
+
+    async function sendIRAck(fragNo) {
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = 0x03;
+      packet[13] = fragNo;
+      packet[46] = mcuCrc8(packet, 36, 11);
+      packet[47] = 0xFF;
+      await sendReport(0x11, packet);
+    }
+
+    async function sendIRStatusRequest() {
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = 0x03;
+      packet[10] = 0x02;
+      packet[46] = mcuCrc8(packet, 36, 11);
+      packet[47] = 0xFF;
+      await sendReport(0x11, packet);
+    }
+
+    // ==================== STEP FUNCTIONS ====================
+    
+    // Optional init (from Java initialization())
+    async function runInit() {
+      log('=== Running silenceInputReport ===', 'info');
+      await sendSubcommand(0x03, [0x3F]);
+    }
+
+    async function step0_setInputMode31() {
+      log('=== Step 0: Set Input Mode 0x31 ===', 'info');
+      await sendSubcommand(0x03, [0x31]);
+    }
+
+    async function step1_enableMCU() {
+      log('=== Step 1: Enable MCU ===', 'info');
+      await sendSubcommand(0x22, [0x01]);
+    }
+
+    async function step2_waitMCUStandby() {
+      log('=== Step 2: Poll MCU Status ===', 'info');
+      await sendOutputReport11(0x01);
+    }
+
+    async function step3_setMCUModeIR() {
+      log('=== Step 3: Set MCU Mode IR ===', 'info');
+      await sendMCUSubcommand(0x21, 0x00, [0x05]);
+    }
+
+    async function step4_waitMCUModeIR() {
+      log('=== Step 4: Poll MCU Mode ===', 'info');
+      await sendOutputReport11(0x01);
+    }
+
+    async function step5_setIRMode() {
+      log('=== Step 5: Set IR Mode ===', 'info');
+      const resVal = parseInt(document.getElementById('resolution').value);
+      currentRes = RESOLUTIONS[resVal];
+      canvas.width = currentRes.width;
+      canvas.height = currentRes.height;
+      
+      await sendMCUSubcommand(0x23, 0x01, [
+        0x07,
+        currentRes.maxFrag,
+        0x00, 0x05,
+        0x00, 0x18
+      ]);
+      log(`Resolution: ${currentRes.width}×${currentRes.height}`, 'info');
+    }
+
+    async function step6_configAndStatus() {
+      log('=== Step 6: Config Registers ===', 'info');
+      
+      // First packet from Java step6
+      const packet1 = new Uint8Array(48);
+      packet1[0] = timingByte++ & 0x0F;
+      packet1[1] = 0x00; packet1[2] = 0x01; packet1[3] = 0x40; packet1[4] = 0x40;
+      packet1[5] = 0x00; packet1[6] = 0x01; packet1[7] = 0x40; packet1[8] = 0x40;
+      packet1[9] = 0x21;
+      packet1[10] = 0x23;
+      packet1[11] = 0x04;
+      packet1[12] = 0x09;
+      packet1[13] = 0x00; packet1[14] = 0x2e; packet1[15] = 0x00;
+      packet1[16] = 0x01; packet1[17] = 0x30; packet1[18] = 0x90;
+      packet1[19] = 0x01; packet1[20] = 0x31; packet1[21] = 0x24;
+      packet1[22] = 0x01; packet1[23] = 0x32; packet1[24] = 0x00;
+      packet1[25] = 0x00; packet1[26] = 0x10; packet1[27] = 0x00;
+      packet1[28] = 0x01; packet1[29] = 0x2e; packet1[30] = 0x20;
+      packet1[31] = 0x01; packet1[32] = 0x2f; packet1[33] = 0x00;
+      packet1[34] = 0x00; packet1[35] = 0x0e; packet1[36] = 0x03;
+      packet1[37] = 0x01; packet1[38] = 0x43; packet1[39] = 0xc8;
+      packet1[47] = mcuCrc8(packet1, 36, 11);  // Note: start=11 per Java
+      await sendReport(0x01, packet1);
+      
+      await sleep(50);
+      await sendIRStatusRequest();
+    }
+
+    async function step7_writeRegisters() {
+      log('=== Step 7: Write IR Registers ===', 'info');
+      
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = 0x21;
+      packet[10] = 0x23;
+      packet[11] = 0x04;
+      packet[12] = 0x09;
+      packet[13] = 0x00; packet[14] = 0x2E; packet[15] = currentRes.resReg;
+      packet[16] = 0x01; packet[17] = 0x30; packet[18] = 0x90;
+      packet[19] = 0x01; packet[20] = 0x31; packet[21] = 0x24;
+      packet[22] = 0x01; packet[23] = 0x32; packet[24] = 0x00;
+      packet[25] = 0x00; packet[26] = 0x10; packet[27] = 0x00;
+      packet[28] = 0x01; packet[29] = 0x2E; packet[30] = 0x20;
+      packet[31] = 0x01; packet[32] = 0x2F; packet[33] = 0x00;
+      packet[34] = 0x00; packet[35] = 0x0E; packet[36] = 0x03;
+      packet[37] = 0x01; packet[38] = 0x43; packet[39] = 0xC8;
+      packet[47] = mcuCrc8(packet, 36, 12);
+      await sendReport(0x01, packet);
+      
+      await sleep(50);
+      await sendIRStatusRequest();
+    }
+
+    async function step8_finalizeRegisters() {
+      log('=== Step 8: Finalize + LEDs ===', 'info');
+      
+      const packet = new Uint8Array(48);
+      packet[0] = timingByte++ & 0x0F;
+      packet[1] = 0x00; packet[2] = 0x01; packet[3] = 0x40; packet[4] = 0x40;
+      packet[5] = 0x00; packet[6] = 0x01; packet[7] = 0x40; packet[8] = 0x40;
+      packet[9] = 0x21;
+      packet[10] = 0x23;
+      packet[11] = 0x04;
+      packet[12] = 0x08;
+      packet[13] = 0x00; packet[14] = 0x11; packet[15] = 0x0F;
+      packet[16] = 0x00; packet[17] = 0x12; packet[18] = 0x10;
+      packet[19] = 0x00; packet[20] = 0x2D; packet[21] = 0x00;
+      packet[22] = 0x01; packet[23] = 0x67; packet[24] = 0x01;
+      packet[25] = 0x01; packet[26] = 0x68; packet[27] = 0x23;
+      packet[28] = 0x01; packet[29] = 0x69; packet[30] = 0x44;
+      packet[31] = 0x00; packet[32] = 0x04; packet[33] = 0x32;
+      packet[34] = 0x00; packet[35] = 0x07; packet[36] = 0x01;  // FINALIZE!
+      packet[47] = mcuCrc8(packet, 36, 12);
+      await sendReport(0x01, packet);
+    }
+
+    async function step9_startStream() {
+      log('=== Step 9: Start Stream ===', 'info');
+      streaming = true;
+      previousFragNo = 0;
+      fragsReceived.clear();
+      irBuffer.fill(0);
+      await sendIRAck(0x00);
+    }
+
+    function stopStream() {
+      log('=== Stop Stream ===', 'warn');
+      streaming = false;
+    }
+
+    async function runFullSequence() {
+      log('════════════════════════════════════════', 'success');
+      log('       FULL IR INIT SEQUENCE', 'success');
+      log('════════════════════════════════════════', 'success');
+      
+      try {
+        await step0_setInputMode31();
+        await sleep(100);
+        
+        await step1_enableMCU();
+        await sleep(100);
+        
+        for (let i = 0; i < 8; i++) {
+          await step2_waitMCUStandby();
+          await sleep(50);
+        }
+        
+        await step3_setMCUModeIR();
+        await sleep(100);
+        
+        for (let i = 0; i < 8; i++) {
+          await step4_waitMCUModeIR();
+          await sleep(50);
+        }
+        
+        await step5_setIRMode();
+        await sleep(100);
+        
+        await step6_configAndStatus();
+        await sleep(100);
+        
+        await step7_writeRegisters();
+        await sleep(100);
+        
+        await step8_finalizeRegisters();
+        await sleep(100);
+        
+        await step9_startStream();
+        
+        log('════════════════════════════════════════', 'success');
+        log('       STREAMING STARTED', 'success');
+        log('════════════════════════════════════════', 'success');
+      } catch (err) {
+        log(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ==================== EVENT LISTENERS ====================
+    document.getElementById('connect-btn').addEventListener('click', connect);
+    document.getElementById('disconnect-btn').addEventListener('click', disconnect);
+    document.getElementById('clear-log').addEventListener('click', () => {
+      document.getElementById('log').innerHTML = '';
+    });
+    
+    document.getElementById('resolution').addEventListener('change', (e) => {
+      const resVal = parseInt(e.target.value);
+      currentRes = RESOLUTIONS[resVal];
+      canvas.width = currentRes.width;
+      canvas.height = currentRes.height;
+      log(`Resolution: ${currentRes.width}×${currentRes.height}`, 'info');
+    });
+
+    // Check WebHID
+    if (!('hid' in navigator)) {
+      log('WebHID not supported!', 'error');
+      document.getElementById('connect-btn').disabled = true;
+    } else {
+      log('WebHID OK. Connect to start.', 'info');
+      log('v3: Fixed byte indices for WebHID (Java-1)', 'success');
+    }
+  </script>
+</body>
+</html>

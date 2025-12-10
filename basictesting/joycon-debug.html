@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nintendo Joy-Con Debug</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-tertiary: #252542;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0a0;
+      --success: #2ec4b6;
+      --error: #e63946;
+      --warning: #f4a261;
+      --info: #4cc9f0;
+      --nintendo-red: #e60012;
+      --nintendo-blue: #0ab9e6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    h1 { 
+      font-size: 1.8rem; 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      background: linear-gradient(90deg, var(--nintendo-blue), var(--nintendo-red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: linear-gradient(135deg, var(--nintendo-blue), #0077b6);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: var(--bg-tertiary); }
+    button.secondary:hover:not(:disabled) { background: #353560; }
+    button.disconnect { background: linear-gradient(135deg, var(--error), #b71c1c); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--bg-tertiary);
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .status-badge.connected::before { background: var(--success); }
+
+    .controllers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .controllers-grid { grid-template-columns: 1fr; }
+    }
+
+    .controller-section {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      padding: 20px;
+      border: 3px solid transparent;
+      transition: opacity 0.3s, box-shadow 0.3s;
+    }
+
+    .controller-section.left { border-color: var(--nintendo-blue); }
+    .controller-section.right { border-color: var(--nintendo-red); }
+    .controller-section.left.active { box-shadow: 0 0 30px rgba(10, 185, 230, 0.4); }
+    .controller-section.right.active { box-shadow: 0 0 30px rgba(230, 0, 18, 0.4); }
+    .controller-section.inactive { opacity: 0.5; }
+
+    .controller-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .controller-icon { font-size: 32px; }
+
+    .controller-header h3 {
+      font-size: 1.3rem;
+      flex: 1;
+    }
+
+    .controller-section.left .controller-header h3 { color: var(--nintendo-blue); }
+    .controller-section.right .controller-header h3 { color: var(--nintendo-red); }
+
+    .status-pill {
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-pill.connected { background: rgba(46, 196, 182, 0.2); color: var(--success); }
+    .status-pill.disconnected { background: rgba(230, 57, 70, 0.2); color: var(--error); }
+
+    .controller-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .mini-stat {
+      background: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .mini-stat-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .mini-stat-value { font-size: 14px; font-weight: bold; font-family: monospace; }
+    .controller-section.left .mini-stat-value { color: var(--nintendo-blue); }
+    .controller-section.right .mini-stat-value { color: var(--nintendo-red); }
+
+    .card {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .card:last-child { margin-bottom: 0; }
+
+    .card h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* Analog Stick */
+    .stick-container { display: flex; justify-content: center; align-items: center; gap: 20px; }
+    .stick-wrapper { text-align: center; }
+    .stick-wrapper label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+
+    .stick {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.4);
+      border: 2px solid #3a3a5c;
+      position: relative;
+    }
+
+    .stick::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40%; height: 40%;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .stick-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%; left: 50%;
+      margin-left: -10px;
+      margin-top: -10px;
+      will-change: transform;
+    }
+
+    .controller-section.left .stick-dot { background: var(--nintendo-blue); box-shadow: 0 0 10px var(--nintendo-blue); }
+    .controller-section.right .stick-dot { background: var(--nintendo-red); box-shadow: 0 0 10px var(--nintendo-red); }
+
+    .stick-values { font-family: monospace; font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+
+    /* Buttons Grid */
+    .buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .button-indicator {
+      padding: 10px 5px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      border: 2px solid transparent;
+    }
+
+    .controller-section.left .button-indicator.pressed {
+      background: var(--nintendo-blue);
+      border-color: #7dd3fc;
+      box-shadow: 0 0 15px rgba(10, 185, 230, 0.5);
+    }
+
+    .controller-section.right .button-indicator.pressed {
+      background: var(--nintendo-red);
+      border-color: #fca5a5;
+      box-shadow: 0 0 15px rgba(230, 0, 18, 0.5);
+    }
+
+    /* D-Pad / Face Buttons Layout */
+    .dpad-container { display: flex; justify-content: center; }
+    .dpad { display: grid; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 36px); gap: 3px; }
+
+    .dpad-btn {
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .controller-section.left .dpad-btn.pressed { background: var(--nintendo-blue); box-shadow: 0 0 10px rgba(10, 185, 230, 0.5); }
+    .controller-section.right .dpad-btn.pressed { background: var(--nintendo-red); box-shadow: 0 0 10px rgba(230, 0, 18, 0.5); }
+    .dpad-center { background: transparent !important; }
+
+    /* Triggers */
+    .triggers-container { display: flex; gap: 15px; }
+    .trigger-wrapper { flex: 1; }
+    .trigger-wrapper label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+    .trigger-bar { height: 20px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; }
+    .trigger-fill { height: 100%; width: 0%; will-change: width; }
+    .controller-section.left .trigger-fill { background: linear-gradient(90deg, #0077b6, var(--nintendo-blue)); }
+    .controller-section.right .trigger-fill { background: linear-gradient(90deg, #b71c1c, var(--nintendo-red)); }
+
+    /* IMU Data */
+    .imu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .imu-value { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; text-align: center; }
+    .imu-value label { display: block; font-size: 9px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
+    .imu-value span { font-family: monospace; font-size: 13px; color: var(--info); }
+
+    /* Player LEDs */
+    .player-leds {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 10px 0;
+    }
+
+    .led {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.2);
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .led.on {
+      background: #00ff00;
+      border-color: #00ff00;
+      box-shadow: 0 0 10px #00ff00;
+    }
+
+    .led-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .led-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Rumble Controls */
+    .rumble-section { margin-top: 15px; }
+    .slider-group { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .slider-group label { font-size: 11px; min-width: 60px; color: var(--text-secondary); }
+    input[type="range"] { flex: 1; height: 6px; border-radius: 3px; background: rgba(0,0,0,0.3); -webkit-appearance: none; }
+    .controller-section.left input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--nintendo-blue); cursor: pointer; }
+    .controller-section.right input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--nintendo-red); cursor: pointer; }
+    .slider-value { font-family: monospace; font-size: 11px; min-width: 35px; text-align: right; }
+
+    .rumble-buttons { display: flex; gap: 8px; margin-top: 10px; }
+    .rumble-buttons button { flex: 1; padding: 8px; font-size: 11px; }
+
+    /* Log Panel */
+    .log-panel {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .log-panel h3 {
+      font-size: 14px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log {
+      background: rgba(0,0,0,0.4);
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-entry { margin-bottom: 4px; opacity: 0.9; }
+    .log-entry .log-time { color: var(--text-secondary); margin-right: 10px; }
+    .log-entry.success { color: var(--success); }
+    .log-entry.error { color: var(--error); }
+    .log-entry.warn { color: var(--warning); }
+    .log-entry.info { color: var(--info); }
+
+    /* Device Info */
+    .device-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .info-item {
+      background: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .info-item label { display: block; font-size: 9px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
+    .info-item span { font-size: 13px; font-weight: 500; }
+
+    /* Home LED */
+    .color-section { margin-top: 15px; }
+    .color-row { display: flex; align-items: center; gap: 10px; }
+    input[type="color"] {
+      width: 40px;
+      height: 30px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    /* Raw Data Panel */
+    .raw-data {
+      background: rgba(0,0,0,0.4);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 10px;
+      word-break: break-all;
+      max-height: 100px;
+      overflow-y: auto;
+      color: var(--text-secondary);
+    }
+
+    /* Calibration Info */
+    .calibration-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .cal-item {
+      background: rgba(0,0,0,0.3);
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 10px;
+    }
+
+    .cal-item label { color: var(--text-secondary); display: block; margin-bottom: 2px; }
+    .cal-item span { font-family: monospace; color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎮 Nintendo Joy-Con Debug</h1>
+    <div class="controls">
+      <button id="connect-left">Connect Left</button>
+      <button id="connect-right">Connect Right</button>
+      <button id="disconnect-all" class="disconnect" disabled>Disconnect All</button>
+      <span id="status" class="status-badge"><span id="status-text">No Controllers</span></span>
+    </div>
+  </div>
+
+  <div class="device-info">
+    <div class="info-item">
+      <label>Left Joy-Con</label>
+      <span id="left-name">--</span>
+    </div>
+    <div class="info-item">
+      <label>Right Joy-Con</label>
+      <span id="right-name">--</span>
+    </div>
+    <div class="info-item">
+      <label>Reports/Sec</label>
+      <span id="reports-sec">0</span>
+    </div>
+    <div class="info-item">
+      <label>Protocol</label>
+      <span id="protocol">--</span>
+    </div>
+  </div>
+
+  <div class="controllers-grid">
+    <!-- Left Joy-Con -->
+    <div id="left-section" class="controller-section left inactive">
+      <div class="controller-header">
+        <span class="controller-icon">🕹️</span>
+        <h3>Left Joy-Con</h3>
+        <span id="left-status" class="status-pill disconnected">Offline</span>
+      </div>
+
+      <div class="controller-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">Battery</div>
+          <div class="mini-stat-value" id="left-battery">--%</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Packets</div>
+          <div class="mini-stat-value" id="left-packets">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Rate</div>
+          <div class="mini-stat-value" id="left-rate">0/s</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Firmware</div>
+          <div class="mini-stat-value" id="left-firmware">--</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Analog Stick</h4>
+        <div class="stick-container">
+          <div class="stick-wrapper">
+            <div class="stick">
+              <div class="stick-dot" id="left-stick-dot"></div>
+            </div>
+            <div class="stick-values" id="left-stick-val">X: 0, Y: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>D-Pad</h4>
+        <div class="dpad-container">
+          <div class="dpad">
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="left-dpad-up">▲</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="left-dpad-left">◀</div>
+            <div class="dpad-btn dpad-center"></div>
+            <div class="dpad-btn" id="left-dpad-right">▶</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="left-dpad-down">▼</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Buttons</h4>
+        <div class="buttons-grid">
+          <div class="button-indicator" id="left-btn-l">L</div>
+          <div class="button-indicator" id="left-btn-zl">ZL</div>
+          <div class="button-indicator" id="left-btn-sl">SL</div>
+          <div class="button-indicator" id="left-btn-sr">SR</div>
+          <div class="button-indicator" id="left-btn-minus">−</div>
+          <div class="button-indicator" id="left-btn-stick">Stick</div>
+          <div class="button-indicator" id="left-btn-capture">📷</div>
+          <div class="button-indicator" id="left-btn-sync">Sync</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Triggers</h4>
+        <div class="triggers-container">
+          <div class="trigger-wrapper">
+            <label><span>ZL</span><span id="left-zl-val">0</span></label>
+            <div class="trigger-bar"><div class="trigger-fill" id="left-zl-bar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Gyroscope</h4>
+        <div class="imu-grid">
+          <div class="imu-value"><label>Pitch</label><span id="left-gyro-pitch">0</span></div>
+          <div class="imu-value"><label>Yaw</label><span id="left-gyro-yaw">0</span></div>
+          <div class="imu-value"><label>Roll</label><span id="left-gyro-roll">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Accelerometer</h4>
+        <div class="imu-grid">
+          <div class="imu-value"><label>X</label><span id="left-accel-x">0</span></div>
+          <div class="imu-value"><label>Y</label><span id="left-accel-y">0</span></div>
+          <div class="imu-value"><label>Z</label><span id="left-accel-z">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Player LEDs</h4>
+        <div class="player-leds">
+          <div class="led" id="left-led-1"></div>
+          <div class="led" id="left-led-2"></div>
+          <div class="led" id="left-led-3"></div>
+          <div class="led" id="left-led-4"></div>
+        </div>
+        <div class="led-controls">
+          <button class="led-btn" onclick="setPlayerLED('left', 0x01)">P1</button>
+          <button class="led-btn" onclick="setPlayerLED('left', 0x03)">P2</button>
+          <button class="led-btn" onclick="setPlayerLED('left', 0x07)">P3</button>
+          <button class="led-btn" onclick="setPlayerLED('left', 0x0F)">P4</button>
+          <button class="led-btn" onclick="setPlayerLED('left', 0xF0)">Flash</button>
+          <button class="led-btn" onclick="setPlayerLED('left', 0x00)">Off</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>HD Rumble</h4>
+        <div class="slider-group">
+          <label>High Freq</label>
+          <input type="range" id="left-rumble-high" min="0" max="255" value="128">
+          <span class="slider-value" id="left-rumble-high-val">128</span>
+        </div>
+        <div class="slider-group">
+          <label>Low Freq</label>
+          <input type="range" id="left-rumble-low" min="0" max="255" value="128">
+          <span class="slider-value" id="left-rumble-low-val">128</span>
+        </div>
+        <div class="rumble-buttons">
+          <button onclick="testRumble('left')">Test Rumble</button>
+          <button onclick="stopRumble('left')" class="secondary">Stop</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Raw Data</h4>
+        <div class="raw-data" id="left-raw">--</div>
+        <div class="rumble-buttons" style="margin-top: 10px; flex-wrap: wrap;">
+          <button onclick="reinitialize('left')" class="secondary">Re-init (Full)</button>
+          <button onclick="sendManualCmd('left', 'mode')" class="secondary">Set Mode 0x30</button>
+          <button onclick="sendManualCmd('left', 'imu')" class="secondary">Enable IMU</button>
+          <button onclick="sendManualCmd('left', 'vibration')" class="secondary">Enable Vib</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Joy-Con -->
+    <div id="right-section" class="controller-section right inactive">
+      <div class="controller-header">
+        <span class="controller-icon">🕹️</span>
+        <h3>Right Joy-Con</h3>
+        <span id="right-status" class="status-pill disconnected">Offline</span>
+      </div>
+
+      <div class="controller-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">Battery</div>
+          <div class="mini-stat-value" id="right-battery">--%</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Packets</div>
+          <div class="mini-stat-value" id="right-packets">0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Rate</div>
+          <div class="mini-stat-value" id="right-rate">0/s</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Firmware</div>
+          <div class="mini-stat-value" id="right-firmware">--</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Analog Stick</h4>
+        <div class="stick-container">
+          <div class="stick-wrapper">
+            <div class="stick">
+              <div class="stick-dot" id="right-stick-dot"></div>
+            </div>
+            <div class="stick-values" id="right-stick-val">X: 0, Y: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Face Buttons</h4>
+        <div class="dpad-container">
+          <div class="dpad">
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="right-btn-x">X</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="right-btn-y">Y</div>
+            <div class="dpad-btn dpad-center"></div>
+            <div class="dpad-btn" id="right-btn-a">A</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+            <div class="dpad-btn" id="right-btn-b">B</div>
+            <div class="dpad-btn" style="visibility: hidden;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Buttons</h4>
+        <div class="buttons-grid">
+          <div class="button-indicator" id="right-btn-r">R</div>
+          <div class="button-indicator" id="right-btn-zr">ZR</div>
+          <div class="button-indicator" id="right-btn-sl">SL</div>
+          <div class="button-indicator" id="right-btn-sr">SR</div>
+          <div class="button-indicator" id="right-btn-plus">+</div>
+          <div class="button-indicator" id="right-btn-stick">Stick</div>
+          <div class="button-indicator" id="right-btn-home">🏠</div>
+          <div class="button-indicator" id="right-btn-sync">Sync</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Triggers</h4>
+        <div class="triggers-container">
+          <div class="trigger-wrapper">
+            <label><span>ZR</span><span id="right-zr-val">0</span></label>
+            <div class="trigger-bar"><div class="trigger-fill" id="right-zr-bar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Gyroscope</h4>
+        <div class="imu-grid">
+          <div class="imu-value"><label>Pitch</label><span id="right-gyro-pitch">0</span></div>
+          <div class="imu-value"><label>Yaw</label><span id="right-gyro-yaw">0</span></div>
+          <div class="imu-value"><label>Roll</label><span id="right-gyro-roll">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Accelerometer</h4>
+        <div class="imu-grid">
+          <div class="imu-value"><label>X</label><span id="right-accel-x">0</span></div>
+          <div class="imu-value"><label>Y</label><span id="right-accel-y">0</span></div>
+          <div class="imu-value"><label>Z</label><span id="right-accel-z">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Player LEDs</h4>
+        <div class="player-leds">
+          <div class="led" id="right-led-1"></div>
+          <div class="led" id="right-led-2"></div>
+          <div class="led" id="right-led-3"></div>
+          <div class="led" id="right-led-4"></div>
+        </div>
+        <div class="led-controls">
+          <button class="led-btn" onclick="setPlayerLED('right', 0x01)">P1</button>
+          <button class="led-btn" onclick="setPlayerLED('right', 0x03)">P2</button>
+          <button class="led-btn" onclick="setPlayerLED('right', 0x07)">P3</button>
+          <button class="led-btn" onclick="setPlayerLED('right', 0x0F)">P4</button>
+          <button class="led-btn" onclick="setPlayerLED('right', 0xF0)">Flash</button>
+          <button class="led-btn" onclick="setPlayerLED('right', 0x00)">Off</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>HD Rumble</h4>
+        <div class="slider-group">
+          <label>High Freq</label>
+          <input type="range" id="right-rumble-high" min="0" max="255" value="128">
+          <span class="slider-value" id="right-rumble-high-val">128</span>
+        </div>
+        <div class="slider-group">
+          <label>Low Freq</label>
+          <input type="range" id="right-rumble-low" min="0" max="255" value="128">
+          <span class="slider-value" id="right-rumble-low-val">128</span>
+        </div>
+        <div class="rumble-buttons">
+          <button onclick="testRumble('right')">Test Rumble</button>
+          <button onclick="stopRumble('right')" class="secondary">Stop</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Home LED</h4>
+        <div class="slider-group">
+          <label>Brightness</label>
+          <input type="range" id="home-led-brightness" min="0" max="15" value="15">
+          <span class="slider-value" id="home-led-val">15</span>
+        </div>
+        <div class="rumble-buttons">
+          <button onclick="setHomeLED()">Set Home LED</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Raw Data</h4>
+        <div class="raw-data" id="right-raw">--</div>
+        <div class="rumble-buttons" style="margin-top: 10px; flex-wrap: wrap;">
+          <button onclick="reinitialize('right')" class="secondary">Re-init (Full)</button>
+          <button onclick="sendManualCmd('right', 'mode')" class="secondary">Set Mode 0x30</button>
+          <button onclick="sendManualCmd('right', 'imu')" class="secondary">Enable IMU</button>
+          <button onclick="sendManualCmd('right', 'vibration')" class="secondary">Enable Vib</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-panel">
+    <h3>
+      <span>📋 Event Log</span>
+      <button class="secondary" onclick="clearLog()">Clear</button>
+    </h3>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    // ============================================================
+    // DOM ELEMENT CACHE
+    // Cache all DOM references once at startup to avoid repeated lookups
+    // ============================================================
+    const $ = id => document.getElementById(id);
+    
+    const DOM = {
+      // Global elements
+      status: $('status'),
+      statusText: $('status-text'),
+      disconnectAll: $('disconnect-all'),
+      reportsSec: $('reports-sec'),
+      protocol: $('protocol'),
+      log: $('log'),
+      
+      // Left Joy-Con elements
+      left: {
+        section: $('left-section'),
+        status: $('left-status'),
+        name: $('left-name'),
+        battery: $('left-battery'),
+        packets: $('left-packets'),
+        rate: $('left-rate'),
+        firmware: $('left-firmware'),
+        stickDot: $('left-stick-dot'),
+        stickVal: $('left-stick-val'),
+        raw: $('left-raw'),
+        zlBar: $('left-zl-bar'),
+        zlVal: $('left-zl-val'),
+        rumbleHigh: $('left-rumble-high'),
+        rumbleLow: $('left-rumble-low'),
+        rumbleHighVal: $('left-rumble-high-val'),
+        rumbleLowVal: $('left-rumble-low-val'),
+        // D-Pad
+        dpadUp: $('left-dpad-up'),
+        dpadDown: $('left-dpad-down'),
+        dpadLeft: $('left-dpad-left'),
+        dpadRight: $('left-dpad-right'),
+        // Buttons
+        btnL: $('left-btn-l'),
+        btnZl: $('left-btn-zl'),
+        btnSl: $('left-btn-sl'),
+        btnSr: $('left-btn-sr'),
+        btnMinus: $('left-btn-minus'),
+        btnStick: $('left-btn-stick'),
+        btnCapture: $('left-btn-capture'),
+        // IMU
+        gyroPitch: $('left-gyro-pitch'),
+        gyroYaw: $('left-gyro-yaw'),
+        gyroRoll: $('left-gyro-roll'),
+        accelX: $('left-accel-x'),
+        accelY: $('left-accel-y'),
+        accelZ: $('left-accel-z'),
+        // LEDs
+        leds: [$('left-led-1'), $('left-led-2'), $('left-led-3'), $('left-led-4')],
+      },
+      
+      // Right Joy-Con elements
+      right: {
+        section: $('right-section'),
+        status: $('right-status'),
+        name: $('right-name'),
+        battery: $('right-battery'),
+        packets: $('right-packets'),
+        rate: $('right-rate'),
+        firmware: $('right-firmware'),
+        stickDot: $('right-stick-dot'),
+        stickVal: $('right-stick-val'),
+        raw: $('right-raw'),
+        zrBar: $('right-zr-bar'),
+        zrVal: $('right-zr-val'),
+        rumbleHigh: $('right-rumble-high'),
+        rumbleLow: $('right-rumble-low'),
+        rumbleHighVal: $('right-rumble-high-val'),
+        rumbleLowVal: $('right-rumble-low-val'),
+        homeLedBrightness: $('home-led-brightness'),
+        homeLedVal: $('home-led-val'),
+        // Face buttons
+        btnA: $('right-btn-a'),
+        btnB: $('right-btn-b'),
+        btnX: $('right-btn-x'),
+        btnY: $('right-btn-y'),
+        // Buttons
+        btnR: $('right-btn-r'),
+        btnZr: $('right-btn-zr'),
+        btnSl: $('right-btn-sl'),
+        btnSr: $('right-btn-sr'),
+        btnPlus: $('right-btn-plus'),
+        btnStick: $('right-btn-stick'),
+        btnHome: $('right-btn-home'),
+        // IMU
+        gyroPitch: $('right-gyro-pitch'),
+        gyroYaw: $('right-gyro-yaw'),
+        gyroRoll: $('right-gyro-roll'),
+        accelX: $('right-accel-x'),
+        accelY: $('right-accel-y'),
+        accelZ: $('right-accel-z'),
+        // LEDs
+        leds: [$('right-led-1'), $('right-led-2'), $('right-led-3'), $('right-led-4')],
+      },
+    };
+
+    // ============================================================
+    // STATE MANAGEMENT
+    // ============================================================
+    const controllers = { left: null, right: null };
+    let lastRateTime = Date.now();
+    
+    // Pending state for requestAnimationFrame batching
+    const pendingUpdates = {
+      left: null,
+      right: null,
+    };
+    
+    // Raw data throttling (update at 10Hz max)
+    const rawDataThrottle = {
+      left: 0,
+      right: 0,
+    };
+    const RAW_DATA_INTERVAL = 100; // ms
+
+    // ============================================================
+    // JOY-CON CONTROLLER CLASS
+    // ============================================================
+    class JoyConController {
+      static VENDOR_ID = 0x057E;
+      static LEFT_PRODUCT_ID = 0x2006;
+      static RIGHT_PRODUCT_ID = 0x2007;
+      static PRO_PRODUCT_ID = 0x2009;
+
+      static CMD = {
+        SET_INPUT_MODE: 0x03,
+        SET_PLAYER_LIGHTS: 0x30,
+        SET_HOME_LIGHT: 0x38,
+        ENABLE_IMU: 0x40,
+        ENABLE_VIBRATION: 0x48,
+      };
+
+      constructor() {
+        this.device = null;
+        this.type = null;
+        this.state = {
+          connected: false,
+          battery: 0,
+          charging: false,
+          stick: { x: 0, y: 0, raw: { x: 0, y: 0 } },
+          buttons: {},
+          dpad: { up: false, down: false, left: false, right: false },
+          triggers: { zl: 0, zr: 0 },
+          gyro: { x: 0, y: 0, z: 0 },
+          accel: { x: 0, y: 0, z: 0 },
+        };
+        this.stats = {
+          packets: 0,
+          packetsThisSecond: 0,
+        };
+        this._packetNumber = 0;
+        this._eventHandlers = {};
+        this._calibration = {
+          xCenter: 2048, yCenter: 2048,
+          xMin: 512, xMax: 3584, yMin: 512, yMax: 3584,
+        };
+      }
+
+      static isSupported() {
+        return 'hid' in navigator;
+      }
+
+      on(event, handler) {
+        if (!this._eventHandlers[event]) this._eventHandlers[event] = [];
+        this._eventHandlers[event].push(handler);
+      }
+
+      _emit(event, data) {
+        const handlers = this._eventHandlers[event];
+        if (handlers) {
+          for (let i = 0; i < handlers.length; i++) {
+            handlers[i](data);
+          }
+        }
+      }
+
+      async connect(type = null) {
+        if (!JoyConController.isSupported()) {
+          throw new Error('WebHID not supported');
+        }
+
+        const filters = [];
+        if (!type || type === 'left') {
+          filters.push({ vendorId: JoyConController.VENDOR_ID, productId: JoyConController.LEFT_PRODUCT_ID });
+        }
+        if (!type || type === 'right') {
+          filters.push({ vendorId: JoyConController.VENDOR_ID, productId: JoyConController.RIGHT_PRODUCT_ID });
+        }
+        if (!type || type === 'pro') {
+          filters.push({ vendorId: JoyConController.VENDOR_ID, productId: JoyConController.PRO_PRODUCT_ID });
+        }
+
+        const devices = await navigator.hid.requestDevice({ filters });
+        if (!devices.length) {
+          throw new Error('No Joy-Con selected');
+        }
+
+        this.device = devices[0];
+        
+        switch (this.device.productId) {
+          case JoyConController.LEFT_PRODUCT_ID: this.type = 'left'; break;
+          case JoyConController.RIGHT_PRODUCT_ID: this.type = 'right'; break;
+          case JoyConController.PRO_PRODUCT_ID: this.type = 'pro'; break;
+        }
+
+        if (!this.device.opened) {
+          await this.device.open();
+        }
+
+        this.device.addEventListener('inputreport', this._handleInputReport.bind(this));
+        
+        this.state.connected = true;
+        this._emit('connect', { type: this.type, name: this.device.productName });
+
+        await this._enableUSBHIDJoystickReport();
+        await this._initialize();
+
+        return { type: this.type, name: this.device.productName };
+      }
+
+      async _enableUSBHIDJoystickReport() {
+        try {
+          const hasUSBReport = this.device.collections[0]?.outputReports?.find(
+            r => r.reportId === 0x80
+          ) != null;
+          
+          if (hasUSBReport) {
+            await this.device.sendReport(0x80, new Uint8Array([0x01]));
+            await this.device.sendReport(0x80, new Uint8Array([0x02]));
+            await this.device.sendReport(0x01, new Uint8Array([0x03]));
+            await this.device.sendReport(0x80, new Uint8Array([0x04]));
+          }
+        } catch (err) {
+          // USB mode not supported
+        }
+      }
+
+      async disconnect() {
+        if (this.device) {
+          try { await this.device.close(); } catch (e) {}
+          this.device = null;
+        }
+        this.state.connected = false;
+        this._emit('disconnect', { type: this.type });
+      }
+
+      async _initialize() {
+        try {
+          await this._sleep(100);
+          await this._sendSubcommandSimple(JoyConController.CMD.SET_INPUT_MODE, [0x30]);
+          await this._sleep(100);
+          await this._sendSubcommandSimple(JoyConController.CMD.ENABLE_IMU, [0x01]);
+          await this._sleep(100);
+          this._emit('initialized', { type: this.type });
+        } catch (err) {
+          this._emit('error', err);
+        }
+      }
+
+      _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      _handleInputReport(event) {
+        const { reportId, data } = event;
+        const bytes = new Uint8Array(data.buffer);
+
+        this.stats.packets++;
+        this.stats.packetsThisSecond++;
+
+        this._emit('rawdata', { reportId, bytes });
+
+        if (reportId === 0x21) {
+          const ack = bytes[12];
+          const subcommandId = bytes[13];
+          const subcommandNames = {
+            0x03: 'SET_INPUT_MODE', 0x30: 'SET_PLAYER_LIGHTS',
+            0x38: 'SET_HOME_LIGHT', 0x40: 'ENABLE_IMU', 0x48: 'ENABLE_VIBRATION',
+          };
+          this._emit('ack', { 
+            ack, subcommandId, 
+            cmdName: subcommandNames[subcommandId] || `0x${subcommandId.toString(16)}`,
+          });
+          this._parseStandardReport(bytes);
+        } else if (reportId === 0x30) {
+          this._parseStandardReport(bytes);
+        } else if (reportId === 0x3F) {
+          this._parseSimpleReport(bytes);
+        }
+
+        this._emit('data', { state: this.state });
+      }
+
+      _parseStandardReport(data) {
+        const batteryLevel = (data[1] >> 4) & 0x0F;
+        this.state.battery = Math.min(100, batteryLevel * 25);
+        this.state.charging = (data[1] & 0x10) !== 0;
+
+        this._parseButtons(data);
+        this._parseStick(data);
+
+        if (data.length >= 25) {
+          this._parseIMU(data);
+        }
+      }
+
+      _parseSimpleReport(data) {
+        const buttons = (data[0] << 8) | data[1];
+        
+        if (this.type === 'left') {
+          this.state.buttons = {
+            up: (buttons & 0x0002) !== 0, down: (buttons & 0x0001) !== 0,
+            left: (buttons & 0x0008) !== 0, right: (buttons & 0x0004) !== 0,
+            l: (buttons & 0x0040) !== 0, zl: (buttons & 0x0080) !== 0,
+            sl: (buttons & 0x0020) !== 0, sr: (buttons & 0x0010) !== 0,
+            minus: (buttons & 0x0100) !== 0, stick: (buttons & 0x0400) !== 0,
+            capture: (buttons & 0x2000) !== 0,
+          };
+        } else {
+          this.state.buttons = {
+            a: (buttons & 0x0001) !== 0, b: (buttons & 0x0002) !== 0,
+            x: (buttons & 0x0004) !== 0, y: (buttons & 0x0008) !== 0,
+            r: (buttons & 0x0040) !== 0, zr: (buttons & 0x0080) !== 0,
+            sl: (buttons & 0x0010) !== 0, sr: (buttons & 0x0020) !== 0,
+            plus: (buttons & 0x0200) !== 0, stick: (buttons & 0x0800) !== 0,
+            home: (buttons & 0x1000) !== 0,
+          };
+        }
+
+        this.state.stick.raw.x = data[3];
+        this.state.stick.raw.y = data[4];
+        this.state.stick.x = (data[3] - 128) / 128;
+        this.state.stick.y = -(data[4] - 128) / 128;
+      }
+
+      _parseButtons(data) {
+        const rightButtons = data[2];
+        const sharedButtons = data[3];
+        const leftButtons = data[4];
+
+        if (this.type === 'left') {
+          this.state.dpad = {
+            down: (leftButtons & 0x01) !== 0, up: (leftButtons & 0x02) !== 0,
+            right: (leftButtons & 0x04) !== 0, left: (leftButtons & 0x08) !== 0,
+          };
+          this.state.buttons = {
+            sr: (leftButtons & 0x10) !== 0, sl: (leftButtons & 0x20) !== 0,
+            l: (leftButtons & 0x40) !== 0, zl: (leftButtons & 0x80) !== 0,
+            minus: (sharedButtons & 0x01) !== 0, stick: (sharedButtons & 0x08) !== 0,
+            capture: (sharedButtons & 0x20) !== 0,
+          };
+          this.state.triggers.zl = this.state.buttons.zl ? 255 : 0;
+        } else if (this.type === 'right') {
+          this.state.buttons = {
+            y: (rightButtons & 0x01) !== 0, x: (rightButtons & 0x02) !== 0,
+            b: (rightButtons & 0x04) !== 0, a: (rightButtons & 0x08) !== 0,
+            sr: (rightButtons & 0x10) !== 0, sl: (rightButtons & 0x20) !== 0,
+            r: (rightButtons & 0x40) !== 0, zr: (rightButtons & 0x80) !== 0,
+            plus: (sharedButtons & 0x02) !== 0, stick: (sharedButtons & 0x04) !== 0,
+            home: (sharedButtons & 0x10) !== 0,
+          };
+          this.state.triggers.zr = this.state.buttons.zr ? 255 : 0;
+        }
+      }
+
+      _parseStick(data) {
+        const stickData = this.type === 'left' ? data.slice(5, 8) : data.slice(8, 11);
+        const raw_x = stickData[0] | ((stickData[1] & 0x0F) << 8);
+        const raw_y = (stickData[1] >> 4) | (stickData[2] << 4);
+
+        this.state.stick.raw.x = raw_x;
+        this.state.stick.raw.y = raw_y;
+
+        const cal = this._calibration;
+        let norm_x = raw_x < cal.xCenter 
+          ? (raw_x - cal.xCenter) / (cal.xCenter - cal.xMin)
+          : (raw_x - cal.xCenter) / (cal.xMax - cal.xCenter);
+        let norm_y = raw_y < cal.yCenter
+          ? (raw_y - cal.yCenter) / (cal.yCenter - cal.yMin)
+          : (raw_y - cal.yCenter) / (cal.yMax - cal.yCenter);
+
+        norm_x = Math.max(-1, Math.min(1, norm_x));
+        norm_y = Math.max(-1, Math.min(1, norm_y));
+
+        const deadzone = 0.1;
+        this.state.stick.x = Math.abs(norm_x) < deadzone ? 0 : norm_x;
+        this.state.stick.y = Math.abs(norm_y) < deadzone ? 0 : norm_y;
+      }
+
+      _parseIMU(data) {
+        const imuOffset = 12;
+        if (data.length < imuOffset + 12) return;
+        
+        const readInt16LE = (offset) => {
+          const val = data[offset] | (data[offset + 1] << 8);
+          return val > 32767 ? val - 65536 : val;
+        };
+        
+        this.state.accel = {
+          x: Math.round((readInt16LE(imuOffset) / 4096) * 100) / 100,
+          y: Math.round((readInt16LE(imuOffset + 2) / 4096) * 100) / 100,
+          z: Math.round((readInt16LE(imuOffset + 4) / 4096) * 100) / 100,
+        };
+        this.state.gyro = {
+          x: Math.round(readInt16LE(imuOffset + 6) / 16.4),
+          y: Math.round(readInt16LE(imuOffset + 8) / 16.4),
+          z: Math.round(readInt16LE(imuOffset + 10) / 16.4),
+        };
+      }
+
+      async _sendSubcommandSimple(subcommandId, params = []) {
+        if (!this.device || !this.state.connected) return;
+        const data = new Uint8Array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, subcommandId, ...params]);
+        try {
+          await this.device.sendReport(0x01, data);
+          this._emit('subcommand', { id: subcommandId, params });
+        } catch (err) {
+          this._emit('error', err);
+        }
+      }
+
+      async _sendSubcommand(subcommandId, params = []) {
+        if (!this.device || !this.state.connected) return;
+        const data = new Uint8Array([0x00, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, subcommandId, ...params]);
+        try {
+          await this.device.sendReport(0x01, data);
+          this._emit('subcommand', { id: subcommandId, params });
+        } catch (err) {
+          this._emit('error', err);
+        }
+      }
+
+      async setPlayerLED(pattern) {
+        await this._sendSubcommand(JoyConController.CMD.SET_PLAYER_LIGHTS, [pattern]);
+      }
+
+      async setHomeLED(brightness = 15, startIntensity = 15, numCycles = 0, patternData = []) {
+        const data = [
+          ((brightness & 0x0F) << 4),
+          ((startIntensity & 0x0F) << 4) | numCycles,
+          ...patternData.slice(0, 23)
+        ];
+        await this._sendSubcommand(JoyConController.CMD.SET_HOME_LIGHT, data);
+      }
+
+      async setRumble(highFreq, highAmp, lowFreq, lowAmp) {
+        if (!this.device || !this.state.connected) return;
+        const report = new Uint8Array(10);
+        report[0] = this._packetNumber++ & 0x0F;
+        const rumbleData = this._encodeRumble(highFreq, highAmp, lowFreq, lowAmp);
+        report[1] = rumbleData[0]; report[2] = rumbleData[1];
+        report[3] = rumbleData[2]; report[4] = rumbleData[3];
+        report[5] = rumbleData[0]; report[6] = rumbleData[1];
+        report[7] = rumbleData[2]; report[8] = rumbleData[3];
+        try {
+          await this.device.sendReport(0x10, report);
+        } catch (err) {
+          this._emit('error', err);
+        }
+      }
+
+      _encodeRumble(highFreq, highAmp, lowFreq, lowAmp) {
+        if (highAmp === 0 && lowAmp === 0) return [0x00, 0x01, 0x40, 0x40];
+        const hf = Math.min(255, Math.max(0, highFreq));
+        const ha = Math.min(255, Math.max(0, highAmp));
+        const lf = Math.min(255, Math.max(0, lowFreq));
+        const la = Math.min(255, Math.max(0, lowAmp));
+        return [
+          (hf >> 2) & 0x7F,
+          ((ha >> 1) & 0x7F) | ((hf & 0x01) << 7),
+          ((lf >> 2) & 0x7F) | 0x40,
+          (la >> 1) | ((lf & 0x01) << 7)
+        ];
+      }
+
+      async stopRumble() {
+        await this.setRumble(0, 0, 0, 0);
+      }
+    }
+
+    // ============================================================
+    // LOGGING
+    // ============================================================
+    function log(msg, type = '') {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + type;
+      entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span>${msg}`;
+      DOM.log.appendChild(entry);
+      DOM.log.scrollTop = DOM.log.scrollHeight;
+    }
+
+    function clearLog() {
+      DOM.log.innerHTML = '';
+    }
+
+    // ============================================================
+    // UI UPDATE FUNCTIONS (using cached DOM references)
+    // ============================================================
+    function updateControllerUI(side) {
+      const ctrl = controllers[side];
+      const dom = DOM[side];
+
+      if (ctrl && ctrl.state.connected) {
+        dom.section.classList.remove('inactive');
+        dom.section.classList.add('active');
+        dom.status.className = 'status-pill connected';
+        dom.status.textContent = 'Connected';
+      } else {
+        dom.section.classList.add('inactive');
+        dom.section.classList.remove('active');
+        dom.status.className = 'status-pill disconnected';
+        dom.status.textContent = 'Offline';
+      }
+      updateOverallStatus();
+    }
+
+    function updateOverallStatus() {
+      const leftConnected = controllers.left?.state.connected;
+      const rightConnected = controllers.right?.state.connected;
+
+      if (leftConnected && rightConnected) {
+        DOM.status.className = 'status-badge connected';
+        DOM.statusText.textContent = 'Both Connected';
+        DOM.disconnectAll.disabled = false;
+      } else if (leftConnected || rightConnected) {
+        DOM.status.className = 'status-badge connected';
+        DOM.statusText.textContent = leftConnected ? 'Left Connected' : 'Right Connected';
+        DOM.disconnectAll.disabled = false;
+      } else {
+        DOM.status.className = 'status-badge';
+        DOM.statusText.textContent = 'No Controllers';
+        DOM.disconnectAll.disabled = true;
+      }
+    }
+
+    function updateLeftUI(ctrl, state) {
+      const dom = DOM.left;
+      
+      // Stats
+      dom.packets.textContent = ctrl.stats.packets;
+      dom.battery.textContent = `${state.battery}%${state.charging ? '⚡' : ''}`;
+
+      // Stick (using transform for GPU acceleration)
+      const stickX = state.stick.x * 40;
+      const stickY = -state.stick.y * 40;
+      dom.stickDot.style.transform = `translate(${stickX}px, ${stickY}px)`;
+      dom.stickVal.textContent = `X: ${state.stick.x.toFixed(2)}, Y: ${state.stick.y.toFixed(2)}`;
+
+      // D-Pad
+      dom.dpadUp.classList.toggle('pressed', state.dpad.up);
+      dom.dpadDown.classList.toggle('pressed', state.dpad.down);
+      dom.dpadLeft.classList.toggle('pressed', state.dpad.left);
+      dom.dpadRight.classList.toggle('pressed', state.dpad.right);
+
+      // Buttons
+      dom.btnL.classList.toggle('pressed', state.buttons.l);
+      dom.btnZl.classList.toggle('pressed', state.buttons.zl);
+      dom.btnSl.classList.toggle('pressed', state.buttons.sl);
+      dom.btnSr.classList.toggle('pressed', state.buttons.sr);
+      dom.btnMinus.classList.toggle('pressed', state.buttons.minus);
+      dom.btnStick.classList.toggle('pressed', state.buttons.stick);
+      dom.btnCapture.classList.toggle('pressed', state.buttons.capture);
+
+      // Trigger
+      dom.zlBar.style.width = `${(state.triggers.zl / 255) * 100}%`;
+      dom.zlVal.textContent = state.triggers.zl;
+
+      // IMU
+      dom.gyroPitch.textContent = state.gyro.x;
+      dom.gyroYaw.textContent = state.gyro.y;
+      dom.gyroRoll.textContent = state.gyro.z;
+      dom.accelX.textContent = state.accel.x;
+      dom.accelY.textContent = state.accel.y;
+      dom.accelZ.textContent = state.accel.z;
+    }
+
+    function updateRightUI(ctrl, state) {
+      const dom = DOM.right;
+      
+      // Stats
+      dom.packets.textContent = ctrl.stats.packets;
+      dom.battery.textContent = `${state.battery}%${state.charging ? '⚡' : ''}`;
+
+      // Stick (using transform for GPU acceleration)
+      const stickX = state.stick.x * 40;
+      const stickY = -state.stick.y * 40;
+      dom.stickDot.style.transform = `translate(${stickX}px, ${stickY}px)`;
+      dom.stickVal.textContent = `X: ${state.stick.x.toFixed(2)}, Y: ${state.stick.y.toFixed(2)}`;
+
+      // Face buttons
+      dom.btnA.classList.toggle('pressed', state.buttons.a);
+      dom.btnB.classList.toggle('pressed', state.buttons.b);
+      dom.btnX.classList.toggle('pressed', state.buttons.x);
+      dom.btnY.classList.toggle('pressed', state.buttons.y);
+
+      // Buttons
+      dom.btnR.classList.toggle('pressed', state.buttons.r);
+      dom.btnZr.classList.toggle('pressed', state.buttons.zr);
+      dom.btnSl.classList.toggle('pressed', state.buttons.sl);
+      dom.btnSr.classList.toggle('pressed', state.buttons.sr);
+      dom.btnPlus.classList.toggle('pressed', state.buttons.plus);
+      dom.btnStick.classList.toggle('pressed', state.buttons.stick);
+      dom.btnHome.classList.toggle('pressed', state.buttons.home);
+
+      // Trigger
+      dom.zrBar.style.width = `${(state.triggers.zr / 255) * 100}%`;
+      dom.zrVal.textContent = state.triggers.zr;
+
+      // IMU
+      dom.gyroPitch.textContent = state.gyro.x;
+      dom.gyroYaw.textContent = state.gyro.y;
+      dom.gyroRoll.textContent = state.gyro.z;
+      dom.accelX.textContent = state.accel.x;
+      dom.accelY.textContent = state.accel.y;
+      dom.accelZ.textContent = state.accel.z;
+    }
+
+    // ============================================================
+    // RENDER LOOP (requestAnimationFrame for smooth updates)
+    // ============================================================
+    function renderLoop() {
+      if (pendingUpdates.left && controllers.left) {
+        updateLeftUI(controllers.left, pendingUpdates.left);
+        pendingUpdates.left = null;
+      }
+      if (pendingUpdates.right && controllers.right) {
+        updateRightUI(controllers.right, pendingUpdates.right);
+        pendingUpdates.right = null;
+      }
+      requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // ============================================================
+    // CONTROLLER SETUP
+    // ============================================================
+    function setupController(ctrl, side) {
+      const dom = DOM[side];
+
+      ctrl.on('connect', (info) => {
+        log(`✓ ${side.toUpperCase()} Joy-Con connected: ${info.name}`, 'success');
+        dom.name.textContent = info.name || 'Joy-Con';
+        DOM.protocol.textContent = 'WebHID';
+        updateControllerUI(side);
+      });
+
+      ctrl.on('disconnect', () => {
+        log(`${side.toUpperCase()} Joy-Con disconnected`, 'warn');
+        dom.name.textContent = '--';
+        updateControllerUI(side);
+      });
+
+      ctrl.on('error', (err) => {
+        log(`${side.toUpperCase()} Error: ${err.message}`, 'error');
+      });
+
+      ctrl.on('initialized', () => {
+        log(`${side.toUpperCase()} initialized - IMU and Standard Full Mode enabled`, 'success');
+      });
+
+      ctrl.on('ack', ({ ack, cmdName }) => {
+        const ackStatus = ack === 0x80 ? 'ACK' : (ack === 0x00 ? 'NACK' : `0x${ack.toString(16)}`);
+        log(`${side.toUpperCase()} Reply: ${cmdName} ${ackStatus}`, ackStatus === 'ACK' ? 'success' : 'warn');
+      });
+
+      ctrl.on('subcommand', ({ id, params }) => {
+        const cmdNames = { 0x03: 'SET_INPUT_MODE', 0x30: 'SET_PLAYER_LIGHTS', 0x40: 'ENABLE_IMU', 0x48: 'ENABLE_VIBRATION' };
+        log(`${side.toUpperCase()} Sent: ${cmdNames[id] || `0x${id.toString(16)}`}`, 'info');
+      });
+
+      // Throttled raw data display (10Hz max)
+      ctrl.on('rawdata', ({ reportId, bytes }) => {
+        const now = Date.now();
+        if (now - rawDataThrottle[side] > RAW_DATA_INTERVAL) {
+          rawDataThrottle[side] = now;
+          // Optimized hex string building (no Array.from)
+          let hex = '';
+          const len = Math.min(20, bytes.length);
+          for (let i = 0; i < len; i++) {
+            hex += bytes[i].toString(16).padStart(2, '0') + ' ';
+          }
+          dom.raw.textContent = `ID:0x${reportId.toString(16)} [${bytes.length}B] ${hex}${bytes.length > 20 ? '...' : ''}`;
+        }
+      });
+
+      // Queue state updates for requestAnimationFrame
+      ctrl.on('data', ({ state }) => {
+        pendingUpdates[side] = state;
+      });
+    }
+
+    // ============================================================
+    // CONTROLLER ACTIONS
+    // ============================================================
+    async function connectController(type) {
+      try {
+        log(`Requesting ${type} Joy-Con...`, 'info');
+        const ctrl = new JoyConController();
+        setupController(ctrl, type);
+        const info = await ctrl.connect(type);
+        if (info.type !== type && type !== 'pro') {
+          log(`Warning: Connected ${info.type} Joy-Con instead of ${type}`, 'warn');
+        }
+        controllers[info.type] = ctrl;
+        updateControllerUI(info.type);
+      } catch (err) {
+        log(`✗ ${err.message}`, 'error');
+      }
+    }
+
+    async function disconnectAll() {
+      for (const side of ['left', 'right']) {
+        if (controllers[side]) {
+          await controllers[side].disconnect();
+          controllers[side] = null;
+          updateControllerUI(side);
+        }
+      }
+    }
+
+    async function setPlayerLED(side, pattern) {
+      const ctrl = controllers[side];
+      if (!ctrl || !ctrl.state.connected) {
+        log(`${side} Joy-Con not connected`, 'warn');
+        return;
+      }
+      try {
+        await ctrl.setPlayerLED(pattern);
+        log(`Set ${side} player LED: 0x${pattern.toString(16).padStart(2, '0')}`, 'info');
+        const leds = DOM[side].leds;
+        for (let i = 0; i < 4; i++) {
+          const solidOn = (pattern & (1 << i)) !== 0;
+          const flashOn = (pattern & (0x10 << i)) !== 0;
+          leds[i].classList.toggle('on', solidOn || flashOn);
+        }
+      } catch (err) {
+        log(`LED error: ${err.message}`, 'error');
+      }
+    }
+
+    async function testRumble(side) {
+      const ctrl = controllers[side];
+      if (!ctrl || !ctrl.state.connected) {
+        log(`${side} Joy-Con not connected`, 'warn');
+        return;
+      }
+      try {
+        const dom = DOM[side];
+        const highFreq = parseInt(dom.rumbleHigh.value);
+        const lowFreq = parseInt(dom.rumbleLow.value);
+        await ctrl.setRumble(highFreq, 180, lowFreq, 180);
+        log(`${side} rumble: HF=${highFreq}, LF=${lowFreq}`, 'info');
+      } catch (err) {
+        log(`Rumble error: ${err.message}`, 'error');
+      }
+    }
+
+    async function stopRumble(side) {
+      const ctrl = controllers[side];
+      if (!ctrl || !ctrl.state.connected) return;
+      try {
+        await ctrl.stopRumble();
+        log(`${side} rumble stopped`, 'info');
+      } catch (err) {
+        log(`Stop rumble error: ${err.message}`, 'error');
+      }
+    }
+
+    async function setHomeLED() {
+      const ctrl = controllers.right;
+      if (!ctrl || !ctrl.state.connected) {
+        log('Right Joy-Con not connected', 'warn');
+        return;
+      }
+      try {
+        const brightness = parseInt(DOM.right.homeLedBrightness.value);
+        await ctrl.setHomeLED(brightness, brightness, 0, []);
+        log(`Home LED brightness: ${brightness}`, 'info');
+      } catch (err) {
+        log(`Home LED error: ${err.message}`, 'error');
+      }
+    }
+
+    async function reinitialize(side) {
+      const ctrl = controllers[side];
+      if (!ctrl || !ctrl.state.connected) {
+        log(`${side} Joy-Con not connected`, 'warn');
+        return;
+      }
+      try {
+        log(`Re-initializing ${side} Joy-Con...`, 'info');
+        await ctrl._initialize();
+      } catch (err) {
+        log(`Re-init error: ${err.message}`, 'error');
+      }
+    }
+
+    async function sendManualCmd(side, cmd) {
+      const ctrl = controllers[side];
+      if (!ctrl || !ctrl.state.connected) {
+        log(`${side} Joy-Con not connected`, 'warn');
+        return;
+      }
+      try {
+        switch(cmd) {
+          case 'mode':
+            log(`${side}: Sending SET_INPUT_MODE 0x30...`, 'info');
+            await ctrl._sendSubcommandSimple(0x03, [0x30]);
+            break;
+          case 'imu':
+            log(`${side}: Sending ENABLE_IMU...`, 'info');
+            await ctrl._sendSubcommandSimple(0x40, [0x01]);
+            break;
+          case 'vibration':
+            log(`${side}: Sending ENABLE_VIBRATION...`, 'info');
+            await ctrl._sendSubcommand(0x48, [0x01]);
+            break;
+        }
+      } catch (err) {
+        log(`Command error: ${err.message}`, 'error');
+      }
+    }
+
+    // ============================================================
+    // RATE COUNTER
+    // ============================================================
+    setInterval(() => {
+      const elapsed = (Date.now() - lastRateTime) / 1000;
+      let totalRate = 0;
+
+      for (const side of ['left', 'right']) {
+        const ctrl = controllers[side];
+        if (ctrl) {
+          const rate = Math.round(ctrl.stats.packetsThisSecond / elapsed);
+          DOM[side].rate.textContent = `${rate}/s`;
+          totalRate += rate;
+          ctrl.stats.packetsThisSecond = 0;
+        }
+      }
+
+      DOM.reportsSec.textContent = totalRate;
+      lastRateTime = Date.now();
+    }, 1000);
+
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
+    $('connect-left').addEventListener('click', () => connectController('left'));
+    $('connect-right').addEventListener('click', () => connectController('right'));
+    DOM.disconnectAll.addEventListener('click', disconnectAll);
+
+    // Slider value displays
+    DOM.left.rumbleHigh.addEventListener('input', (e) => { DOM.left.rumbleHighVal.textContent = e.target.value; });
+    DOM.left.rumbleLow.addEventListener('input', (e) => { DOM.left.rumbleLowVal.textContent = e.target.value; });
+    DOM.right.rumbleHigh.addEventListener('input', (e) => { DOM.right.rumbleHighVal.textContent = e.target.value; });
+    DOM.right.rumbleLow.addEventListener('input', (e) => { DOM.right.rumbleLowVal.textContent = e.target.value; });
+    DOM.right.homeLedBrightness.addEventListener('input', (e) => { DOM.right.homeLedVal.textContent = e.target.value; });
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+    if (!JoyConController.isSupported()) {
+      log('❌ WebHID API not supported! Use Chrome 89+ or Edge 89+.', 'error');
+      $('connect-left').disabled = true;
+      $('connect-right').disabled = true;
+    } else {
+      log('✓ WebHID API supported', 'success');
+      log('Ready. Click "Connect Left" or "Connect Right" to begin.', 'info');
+      log('Note: Joy-Cons must be paired via Bluetooth first.', 'info');
+    }
+  </script>
+</body>
+</html>
